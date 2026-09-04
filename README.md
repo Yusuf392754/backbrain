@@ -61,3 +61,9 @@ The next substantial feature is a persisted, user-authored memory capture flow t
 ## Verification completed here
 
 The browser preview JavaScript was syntax-checked after the parity changes. The Flutter code was reviewed statically and kept dependency-compatible with the existing pinned packages; full compilation remains a local Flutter-toolchain step.
+
+## Vercel deployment
+
+The deployable web experience is now `index.html`, a production-named copy of the self-contained browser prototype. Vercel can serve it as a static site with no build command and no environment variables. `preview.html` remains as the explicit local prototype filename, while `flutter-app/` remains the mobile source and payment backend.
+
+The repository is configured with `vercel.json` for clean URLs and basic browser security headers. The GitHub repository is the canonical source for future Vercel deployments; the current Vercel project is being deployed directly because the available Vercel account has no team identifier for automatic Git linking.

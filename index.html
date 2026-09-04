@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BackBrain — the memory that never lets go</title>
+<meta name="description" content="BackBrain listens, remembers, and recalls — a calm memory assistant prototype.">
+<meta name="theme-color" content="#1B2430">
+<style>
+  :root{
+    --ink:#1B2430;
+    --ink-soft:#5B6472;
+    --border:#DDE2E8;
+    --bg:#F4F6F8;
+    --paper:#FFFFFF;
+    --accent:#C98A3B;
+    --accent-light:#F3E3CB;
+    --sage:#6F8F76;
+    --sage-light:#E1EAE2;
+    --danger:#C0392B;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    display:flex;
+    justify-content:center;
+  }
+  .phone{
+    width:100%;
+    max-width:420px;
+    min-height:100vh;
+    background:var(--paper);
+    display:flex;
+    flex-direction:column;
+    border-left:1px solid var(--border);
+    border-right:1px solid var(--border);
+  }
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 16px;border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .topbar .title{font-size:16px;font-weight:600;}
+  .topbar button.icon-btn{
+    background:none;border:none;cursor:pointer;font-size:18px;color:var(--ink-soft);
+    padding:4px;line-height:1;
+  }
+  .screen{flex:1;overflow-y:auto;padding:16px;}
+  h1.hero{font-size:20px;margin:0 0 4px;}
+  p.sub{font-size:13px;color:var(--ink-soft);margin:0 0 16px;}
+  .ask-bar{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .mic-btn{
+    border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;
+    background:var(--paper);color:var(--ink);font-size:12px;flex-shrink:0;padding:7px 10px;
+  }
+  .mic-btn.live{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .ask-bar input{
+    flex:1;border:1px solid var(--border);border-radius:var(--radius);
+    padding:8px 10px;font-size:13px;
+  }
+  button{
+    font-family:inherit;font-size:13px;padding:7px 12px;border-radius:var(--radius);
+    border:1px solid var(--border);background:var(--paper);color:var(--ink);cursor:pointer;
+  }
+  button.primary{background:var(--ink);color:#fff;border-color:var(--ink);}
+  button:hover{opacity:0.85;}
+  .ask-log{margin:8px 0 16px;}
+  .ask-entry{font-size:12px;padding:6px 0;border-top:1px solid var(--border);}
+  .ask-entry .q{color:var(--ink-soft);}
+  .stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;}
+  .stat-card{background:var(--bg);border-radius:var(--radius);padding:10px;}
+  .stat-card .label{font-size:11px;color:var(--ink-soft);}
+  .stat-card .value{font-size:18px;font-weight:600;margin-top:2px;}
+  .recap{background:var(--ink);color:#fff;border-radius:12px;padding:14px;margin-bottom:16px;}
+  .recap .label{font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.7;margin-bottom:6px;}
+  .recap p{font-size:13px;line-height:1.5;margin:0;}
+  .section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .section-head span.title{font-size:14px;font-weight:600;}
+  .section-head button{font-size:12px;padding:5px 10px;}
+  .card-row{border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;}
+  .card-row .text{font-size:13px;}
+  .card-row .meta{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+  .card-row .actions{display:flex;gap:6px;margin-top:8px;}
+  .empty{font-size:12px;color:var(--ink-soft);}
+  .moments-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;}
+  .moment-card{
+    flex:0 0 130px;border:1px solid var(--border);border-radius:var(--radius);padding:10px;
+  }
+  .moment-card .time{font-size:10px;color:var(--accent);font-weight:600;}
+  .moment-card .title{font-size:12px;font-weight:600;margin:4px 0 2px;}
+  .moment-card .desc{font-size:11px;color:var(--ink-soft);}
+  .timeline-row{display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--border);}
+  .timeline-row:first-child{border-top:none;}
+  .timeline-row .t{font-size:11px;color:var(--ink-soft);width:56px;flex-shrink:0;}
+  .timeline-row .title{font-size:13px;font-weight:600;}
+  .timeline-row .desc{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .week-row{display:flex;gap:4px;margin-bottom:16px;}
+  .day-cell{
+    flex:1;text-align:center;padding:8px 2px;border:1px solid var(--border);border-radius:8px;
+    cursor:pointer;font-size:11px;
+  }
+  .day-cell .num{font-size:14px;font-weight:600;display:block;margin-top:2px;}
+  .day-cell.today{background:var(--accent-light);}
+  .day-cell.selected{border-color:var(--accent);border-width:2px;}
+  .day-cell .dot{width:4px;height:4px;border-radius:50%;background:var(--sage);margin:3px auto 0;}
+  .week-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .week-nav button{padding:4px 8px;}
+  .person-card{
+    display:flex;gap:10px;border:1px solid var(--border);border-radius:var(--radius);
+    padding:10px 12px;margin-bottom:8px;align-items:flex-start;
+  }
+  .avatar{
+    width:30px;height:30px;background:var(--bg);color:var(--ink-soft);
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;
+    border:1px solid var(--border);
+  }
+  .person-card .name{font-size:13px;font-weight:600;}
+  .person-card .relation{font-size:11px;color:var(--accent);}
+  .person-card .note{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+  .person-card .p-actions{margin-left:auto;display:flex;gap:4px;flex-shrink:0;}
+  .person-card .p-actions button{padding:4px 6px;font-size:12px;}
+  .bottom-mic{
+    display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .bottom-mic .status{font-size:11px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .nav{display:flex;border-top:1px solid var(--border);flex-shrink:0;}
+  .nav button{
+    flex:1;border:none;background:none;border-radius:0;padding:10px 0;
+    font-size:12px;color:var(--ink-soft);
+  }
+  .nav button.active{color:var(--accent);font-weight:600;}
+  .settings-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 0;border-bottom:1px solid var(--border);
+  }
+  .settings-row .st-title{font-size:13px;font-weight:600;}
+  .settings-row .st-sub{font-size:11px;color:var(--ink-soft);margin-top:2px;max-width:240px;}
+  .price{font-size:28px;font-weight:700;margin:4px 0;}
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;
+    justify-content:center;z-index:100;padding:20px;
+  }
+  .modal-box{
+    background:var(--paper);border-radius:12px;padding:18px;width:100%;max-width:320px;
+  }
+  .modal-box h3{font-size:15px;margin:0 0 12px;}
+  .modal-box label{font-size:12px;color:var(--ink-soft);display:block;margin:8px 0 4px;}
+  .modal-box input{
+    width:100%;border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;
+    font-size:13px;font-family:inherit;
+  }
+  .modal-btn-row{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+  .error-text{font-size:12px;color:var(--danger);margin:6px 0 0;}
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="topbar">
+    <button class="icon-btn" id="backBtn" style="visibility:hidden;">back</button>
+    <span class="title" id="topTitle">backbrain</span>
+    <button class="icon-btn" id="settingsBtn">settings</button>
+  </div>
+
+  <div class="screen" id="screenContent"></div>
+
+  <div class="bottom-mic" id="bottomMic">
+    <button class="mic-btn" id="micBtn">mic</button>
+    <span class="status" id="voiceStatus">tap the mic to listen for "hey backbrain"</span>
+  </div>
+
+  <div class="nav" id="bottomNav">
+    <button data-tab="home">home</button>
+    <button data-tab="timeline">timeline</button>
+    <button data-tab="calendar">calendar</button>
+    <button data-tab="people">people</button>
+  </div>
+</div>
+
+<script>
+// ---------- state ----------
+let currentScreen = 'home';
+let currentTab = 'home';
+
+let nextInboxId = 2;
+let inbox = [
+  {id:1, text:'follow-up bloodwork', meta:'detected from dr. patel visit · suggested: 3 weeks from today'}
+];
+
+let nextEventId = 1;
+let events = {}; // key: 'YYYY-M-D' -> [{id,text,time,source}]
+
+let people = [
+  {name:'sarah', relation:'daughter', note:'visits most weekends, usually calls first.'},
+  {name:'michael', relation:'son', note:'calls to check in, brings the kids over for dinner.'},
+  {name:'dr. patel', relation:'physician', note:'manages medication.'},
+  {name:'pat', relation:'neighbor', note:'stops by for coffee.'}
+];
+
+const moments = [
+  {time:'7:30 am', title:'woke up', desc:'morning medication taken on schedule.'},
+  {time:'9:00 am', title:'coffee with pat', desc:'neighbor stopped by.'},
+  {time:'11:00 am', title:'call with michael', desc:"confirmed saturday's visit."},
+  {time:'2:15 pm', title:'dr. patel visit', desc:'medication dose adjusted.'},
+  {time:'6:30 pm', title:'family dinner', desc:'michael and the kids came by.'}
+];
+
+const ASK_LOG_KEY = 'backbrain_ask_log';
+let askLog = loadAskLog();
+let selectedDay = dateOnly(new Date());
+let weekStart = startOfWeek(new Date());
+
+let notificationsEnabled = true;
+let caregiverShare = false;
+let isSubscribed = false;
+
+// ---------- date helpers ----------
+function dateOnly(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function startOfWeek(d){ const x = dateOnly(d); x.setDate(x.getDate() - x.getDay()); return x; }
+function dateKey(d){ return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function eventsFor(d){ return events[dateKey(d)] || []; }
+const dayNames = ['sun','mon','tue','wed','thu','fri','sat'];
+const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+
+function loadAskLog(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(ASK_LOG_KEY) || '[]');
+    return Array.isArray(saved) ? saved.filter(e => e && e.q && e.a).slice(0,20) : [];
+  }catch(e){ return []; }
+}
+
+function saveAskLog(){
+  try{ localStorage.setItem(ASK_LOG_KEY, JSON.stringify(askLog.slice(0,20))); }catch(e){}
+}
+
+// ---------- modal helper ----------
+function showModal(title, fields){
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    const box = document.createElement('div');
+    box.className = 'modal-box';
+    const h3 = document.createElement('h3');
+    h3.textContent = title;
+    box.appendChild(h3);
+
+    const inputs = {};
+    fields.forEach(f => {
+      const label = document.createElement('label');
+      label.textContent = f.label;
+      const input = document.createElement('input');
+      input.type = f.type || 'text';
+      input.placeholder = f.placeholder || '';
+      input.value = f.value || '';
+      inputs[f.key] = input;
+      box.appendChild(label);
+      box.appendChild(input);
+    });
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'modal-btn-row';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'cancel';
+    cancelBtn.onclick = () => { document.body.removeChild(overlay); resolve(null); };
+    const okBtn = document.createElement('button');
+    okBtn.textContent = 'save';
+    okBtn.className = 'primary';
+    okBtn.onclick = () => {
+      const values = {};
+      fields.forEach(f => values[f.key] = inputs[f.key].value.trim());
+      document.body.removeChild(overlay);
+      resolve(values);
+    };
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(okBtn);
+    box.appendChild(btnRow);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    const firstInput = inputs[fields[0].key];
+    if (firstInput) firstInput.focus();
+  });
+}
+
+// ---------- ask backbrain ----------
+function answerFor(question){
+  const q = question.toLowerCase();
+
+  for (const p of people){
+    if (q.includes(p.name)) return `${p.name} is your ${p.relation}. ${p.note}`;
+  }
+  if (q.includes('doctor') || q.includes('medication') || q.includes('dose')){
+    const doc = people.find(p => p.relation.includes('physician'));
+    if (doc) return doc.note;
+  }
+  if (q.includes('schedule') || q.includes('need') || q.includes('todo')){
+    if (inbox.length === 0) return 'nothing is waiting to be scheduled right now.';
+    return `you have ${inbox.length} thing(s) waiting, including "${inbox[0].text}."`;
+  }
+  if (q.includes('today')){
+    const todays = eventsFor(new Date());
+    if (todays.length === 0) return 'nothing else is scheduled for today.';
+    return `today you've got: ${todays.map(e => e.text).join(', ')}.`;
+  }
+  return "here's what i caught today: coffee with pat, a call with michael, dr. patel's visit, and family dinner.";
+}
+
+function askQuestion(text){
+  if (!text || !text.trim()) return;
+  const answer = answerFor(text);
+  askLog.unshift({q: text.trim(), a: answer});
+  if (askLog.length > 20) askLog.pop();
+  saveAskLog();
+  if ('speechSynthesis' in window){
+    const utter = new SpeechSynthesisUtterance(answer);
+    utter.rate = 1;
+    window.speechSynthesis.speak(utter);
+  }
+  render();
+}
+
+// ---------- voice ("hey backbrain") ----------
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let listening = false;
+let awaitingCommand = false;
+let voiceStatusText = 'tap the mic to listen for "hey backbrain"';
+
+function setVoiceStatus(text){
+  voiceStatusText = text;
+  const el = document.getElementById('voiceStatus');
+  if (el) el.textContent = text;
+}
+
+function handleTranscript(raw){
+  const text = raw.toLowerCase().trim();
+  if (!text) return;
+  if (awaitingCommand){
+    awaitingCommand = false;
+    askQuestion(text);
+    return;
+  }
+  const wake = 'hey backbrain';
+  if (text.includes(wake)){
+    const after = text.split(wake)[1].trim();
+    if (after.length > 2){
+      askQuestion(after);
+    } else {
+      awaitingCommand = true;
+      setVoiceStatus('listening for your question...');
+    }
+  }
+}
+
+function startListening(){
+  if (!SpeechRecognition){
+    setVoiceStatus("voice isn't supported in this browser — try chrome, over https.");
+    return;
+  }
+  if (!recognition){
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.onresult = (e) => {
+      const last = e.results[e.results.length - 1];
+      if (last.isFinal) handleTranscript(last[0].transcript);
+    };
+    recognition.onerror = (e) => {
+      setVoiceStatus('mic error: ' + e.error);
+      listening = false;
+      updateMicBtn();
+    };
+    recognition.onend = () => { if (listening){ try{ recognition.start(); }catch(e){} } };
+  }
+  try{
+    recognition.start();
+    listening = true;
+    setVoiceStatus('listening — say "hey backbrain" any time.');
+    updateMicBtn();
+  }catch(e){
+    setVoiceStatus('could not start the mic.');
+  }
+}
+
+function stopListening(){
+  listening = false;
+  if (recognition) recognition.stop();
+  setVoiceStatus('mic off. tap to listen again.');
+  updateMicBtn();
+}
+
+function updateMicBtn(){
+  const btn = document.getElementById('micBtn');
+  if (btn) btn.classList.toggle('live', listening);
+}
+
+// ---------- actions ----------
+async function addReminder(){
+  const r = await showModal('add reminder', [{key:'text', label:'what needs to be remembered?', placeholder:'e.g. call the pharmacy'}]);
+  if (r && r.text){
+    inbox.push({id: nextInboxId++, text: r.text, meta: 'added manually'});
+    render();
+  }
+}
+
+async function editReminder(id){
+  const item = inbox.find(i => i.id === id);
+  if (!item) return;
+  const r = await showModal('edit reminder', [{key:'text', label:'reminder text', value: item.text}]);
+  if (r && r.text){ item.text = r.text; render(); }
+}
+
+async function confirmReminder(id){
+  const item = inbox.find(i => i.id === id);
+  if (!item) return;
+  const r = await showModal('confirm reminder', [
+    {key:'date', label:'date', type:'date', value: new Date().toISOString().slice(0,10)},
+    {key:'time', label:'time (optional)', placeholder:'e.g. 3:00 pm'}
+  ]);
+  if (!r || !r.date) return;
+  const d = dateOnly(new Date(r.date + 'T00:00:00'));
+  const key = dateKey(d);
+  if (!events[key]) events[key] = [];
+  events[key].push({id: nextEventId++, text: item.text, time: r.time || 'time tbd', source:'you'});
+  inbox = inbox.filter(i => i.id !== id);
+  render();
+}
+
+function removeEvent(id){
+  const key = dateKey(selectedDay);
+  if (!events[key]) return;
+  events[key] = events[key].filter(e => e.id !== id);
+  if (events[key].length === 0) delete events[key];
+  render();
+}
+
+async function addEvent(){
+  const r = await showModal('add event', [
+    {key:'text', label:"what's the event?"},
+    {key:'time', label:'time (optional)', placeholder:'e.g. 3:00 pm'}
+  ]);
+  if (!r || !r.text) return;
+  const key = dateKey(selectedDay);
+  if (!events[key]) events[key] = [];
+  events[key].push({id: nextEventId++, text: r.text, time: r.time || 'time tbd', source:'you'});
+  render();
+}
+
+async function addPerson(){
+  const r = await showModal('add person', [
+    {key:'name', label:'name'},
+    {key:'relation', label:'relation', placeholder:'e.g. daughter'},
+    {key:'note', label:'note'}
+  ]);
+  if (r && r.name){ people.push({name:r.name, relation:r.relation, note:r.note}); render(); }
+}
+
+async function editPerson(idx){
+  const p = people[idx];
+  const r = await showModal('edit person', [
+    {key:'name', label:'name', value:p.name},
+    {key:'relation', label:'relation', value:p.relation},
+    {key:'note', label:'note', value:p.note}
+  ]);
+  if (r && r.name){ people[idx] = {name:r.name, relation:r.relation, note:r.note}; render(); }
+}
+
+function removePerson(idx){ people.splice(idx,1); render(); }
+
+function goToScreen(screen){ currentScreen = screen; render(); }
+function goToTab(tab){ currentTab = tab; currentScreen = tab; render(); }
+
+// ---------- render ----------
+function render(){
+  document.getElementById('backBtn').style.visibility = (currentScreen==='settings'||currentScreen==='subscription') ? 'visible' : 'hidden';
+  document.getElementById('bottomMic').style.display = (currentScreen==='settings'||currentScreen==='subscription') ? 'none' : 'flex';
+  document.getElementById('bottomNav').style.display = (currentScreen==='settings'||currentScreen==='subscription') ? 'none' : 'flex';
+
+  const titles = {home:'backbrain', timeline:"sarah's day", calendar:'calendar', people:"who's who", settings:'settings', subscription:'subscription'};
+  document.getElementById('topTitle').textContent = titles[currentScreen] || 'backbrain';
+
+  document.querySelectorAll('#bottomNav button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === currentTab && (currentScreen===currentTab));
+  });
+
+  const el = document.getElementById('screenContent');
+  if (currentScreen === 'home') el.innerHTML = renderHome();
+  else if (currentScreen === 'timeline') el.innerHTML = renderTimeline();
+  else if (currentScreen === 'calendar') el.innerHTML = renderCalendar();
+  else if (currentScreen === 'people') el.innerHTML = renderPeople();
+  else if (currentScreen === 'settings') el.innerHTML = renderSettings();
+  else if (currentScreen === 'subscription') el.innerHTML = renderSubscription();
+
+  wireScreenEvents();
+  updateMicBtn();
+}
+
+function renderHome(){
+  const askLogHtml = askLog.slice(0,3).map(e => `
+    <div class="ask-entry"><div class="q">Q: ${escapeHtml(e.q)}</div><div>A: ${escapeHtml(e.a)}</div></div>
+  `).join('');
+
+  const inboxHtml = inbox.length === 0
+    ? `<p class="empty">nothing waiting.</p>`
+    : inbox.map(item => `
+        <div class="card-row">
+          <div class="text">${escapeHtml(item.text)}</div>
+          <div class="meta">${escapeHtml(item.meta)}</div>
+          <div class="actions">
+            <button data-edit-reminder="${item.id}">edit</button>
+            <button class="primary" data-confirm-reminder="${item.id}">confirm</button>
+          </div>
+        </div>
+      `).join('');
+
+  const momentsHtml = moments.map(m => `
+    <div class="moment-card">
+      <div class="time">${m.time}</div>
+      <div class="title">${escapeHtml(m.title)}</div>
+      <div class="desc">${escapeHtml(m.desc)}</div>
+    </div>
+  `).join('');
+
+  return `
+    <h1 class="hero">the memory that never lets go.</h1>
+    <p class="sub">backbrain listens, remembers, and recalls.</p>
+
+    <div class="ask-bar">
+      <input type="text" id="askInput" placeholder="ask backbrain something...">
+      <button class="primary" id="askBtn">ask</button>
+    </div>
+    <div class="ask-log">${askLogHtml}</div>
+
+    <div class="stat-row">
+      <div class="stat-card"><div class="label">captured today</div><div class="value">14</div></div>
+      <div class="stat-card"><div class="label">needs scheduling</div><div class="value">${inbox.length}</div></div>
+    </div>
+
+    <div class="recap">
+      <div class="label">today's recap</div>
+      <p>sarah is visiting saturday, dr. patel adjusted your medication, and bloodwork still needs scheduling.</p>
+    </div>
+
+    <div class="section-head"><span class="title">scheduling inbox</span><button id="addReminderBtn">+ add</button></div>
+    ${inboxHtml}
+
+    <div class="section-head" style="margin-top:16px;"><span class="title">moments caught today</span></div>
+    <div class="moments-row">${momentsHtml}</div>
+  `;
+}
+
+function renderTimeline(){
+  const rows = moments.map(m => `
+    <div class="timeline-row">
+      <div class="t">${m.time}</div>
+      <div>
+        <div class="title">${escapeHtml(m.title)}</div>
+        <div class="desc">${escapeHtml(m.desc)}</div>
+      </div>
+    </div>
+  `).join('');
+  return `
+    <h1 class="hero">sarah's day</h1>
+    <p class="sub">a sample recall of a full day.</p>
+    ${rows}
+  `;
+}
+
+function renderCalendar(){
+  const days = [];
+  for (let i=0;i<7;i++){ const d = new Date(weekStart); d.setDate(d.getDate()+i); days.push(d); }
+  const today = new Date();
+
+  const weekHtml = days.map(d => {
+    const classes = ['day-cell'];
+    if (sameDay(d, today)) classes.push('today');
+    if (sameDay(d, selectedDay)) classes.push('selected');
+    const has = eventsFor(d).length > 0;
+    return `
+      <div class="${classes.join(' ')}" data-day="${d.toISOString()}">
+        ${dayNames[d.getDay()]}
+        <span class="num">${d.getDate()}</span>
+        ${has ? '<div class="dot"></div>' : ''}
+      </div>
+    `;
+  }).join('');
+
+  const dayEvents = eventsFor(selectedDay);
+  const eventsHtml = dayEvents.length === 0
+    ? `<p class="empty">nothing scheduled.</p>`
+    : dayEvents.map(e => `
+        <div class="card-row">
+          <div class="text">${escapeHtml(e.text)}</div>
+          <div class="meta">${escapeHtml(e.time)} · ${e.source === 'backbrain' ? 'detected by backbrain' : 'added by you'}</div>
+          <div class="actions"><button data-remove-event="${e.id}">delete</button></div>
+        </div>
+      `).join('');
+
+  return `
+    <h1 class="hero">calendar</h1>
+    <div class="week-nav">
+      <button id="prevWeekBtn">prev week</button>
+      <span class="sub" style="margin:0;">${monthNames[days[0].getMonth()]} ${days[0].getDate()} - ${monthNames[days[6].getMonth()]} ${days[6].getDate()}</span>
+      <button id="nextWeekBtn">next week</button>
+    </div>
+    <div class="week-row">${weekHtml}</div>
+    <div class="section-head">
+      <span class="title">${monthNames[selectedDay.getMonth()]} ${selectedDay.getDate()}, ${dayNames[selectedDay.getDay()]}</span>
+      <button id="addEventBtn">+ add event</button>
+    </div>
+    ${eventsHtml}
+  `;
+}
+
+function renderPeople(){
+  const rows = people.map((p, idx) => `
+    <div class="person-card">
+      <div class="avatar">${p.name ? p.name[0].toUpperCase() : '?'}</div>
+      <div>
+        <div class="name">${escapeHtml(p.name)}</div>
+        <div class="relation">${escapeHtml(p.relation)}</div>
+        <div class="note">${escapeHtml(p.note)}</div>
+      </div>
+      <div class="p-actions">
+        <button data-edit-person="${idx}">edit</button>
+        <button data-remove-person="${idx}">delete</button>
+      </div>
+    </div>
+  `).join('');
+  return `
+    <div class="section-head"><span class="title" style="font-size:16px;">who's who</span><button id="addPersonBtn">+ add</button></div>
+    <p class="sub">family, friends, and caregivers.</p>
+    ${people.length === 0 ? '<p class="empty">no one added yet.</p>' : rows}
+  `;
+}
+
+function renderSettings(){
+  return `
+    <div class="settings-row" id="subRow" style="cursor:pointer;">
+      <div><div class="st-title">subscription</div><div class="st-sub">${isSubscribed ? 'active — $19/month' : 'not subscribed'}</div></div>
+      <span>view</span>
+    </div>
+    <div class="settings-row">
+      <div><div class="st-title">reminder notifications</div><div class="st-sub">get notified when something is coming up.</div></div>
+      <button id="notifSwitch">${notificationsEnabled ? 'on' : 'off'}</button>
+    </div>
+    <div class="settings-row">
+      <div><div class="st-title">share with a caregiver</div><div class="st-sub">let a family member view your schedule.</div></div>
+      <button id="caregiverSwitch">${caregiverShare ? 'on' : 'off'}</button>
+    </div>
+    <div class="settings-row" style="border-bottom:none;">
+      <div><div class="st-title">reset demo data</div><div class="st-sub">clears everything and reloads the sample day.</div></div>
+      <button id="resetBtn">reset</button>
+    </div>
+  `;
+}
+
+function renderSubscription(){
+  if (isSubscribed){
+    return `
+      <p class="sub" style="font-weight:600;color:var(--ink);font-size:14px;">you're subscribed</p>
+      <p class="sub">$19/month — thanks for supporting backbrain.</p>
+      <button id="cancelSubBtn">cancel subscription</button>
+    `;
+  }
+  return `
+    <h1 class="hero">backbrain plan</h1>
+    <div class="price">$19<span style="font-size:14px;color:var(--ink-soft);"> / month</span></div>
+    <p class="sub">everything in the app, for one person. cancel anytime.</p>
+    <label style="font-size:12px;color:var(--ink-soft);display:block;margin:8px 0 4px;">email for billing</label>
+    <input type="email" id="subEmail" style="width:100%;border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:13px;">
+    <p class="error-text" id="subError" style="display:none;"></p>
+    <button class="primary" id="subscribeBtn" style="width:100%;margin-top:12px;padding:10px;">subscribe — $19/month</button>
+    <p class="sub" style="margin-top:12px;font-size:11px;">this is a mocked checkout for the preview — the real app hands this off to Stripe's payment sheet via a backend.</p>
+  `;
+}
+
+function escapeHtml(s){
+  const div = document.createElement('div');
+  div.textContent = s == null ? '' : s;
+  return div.innerHTML;
+}
+
+// ---------- wire events per screen ----------
+function wireScreenEvents(){
+  const askBtn = document.getElementById('askBtn');
+  const askInput = document.getElementById('askInput');
+  if (askBtn) askBtn.onclick = () => { askQuestion(askInput.value); askInput.value=''; };
+  if (askInput) askInput.onkeydown = (e) => { if (e.key==='Enter'){ askQuestion(askInput.value); askInput.value=''; } };
+
+  const addReminderBtn = document.getElementById('addReminderBtn');
+  if (addReminderBtn) addReminderBtn.onclick = addReminder;
+  document.querySelectorAll('[data-edit-reminder]').forEach(b => b.onclick = () => editReminder(parseInt(b.dataset.editReminder)));
+  document.querySelectorAll('[data-confirm-reminder]').forEach(b => b.onclick = () => confirmReminder(parseInt(b.dataset.confirmReminder)));
+
+  document.querySelectorAll('[data-day]').forEach(cell => cell.onclick = () => { selectedDay = dateOnly(new Date(cell.dataset.day)); render(); });
+  const prevWeekBtn = document.getElementById('prevWeekBtn');
+  const nextWeekBtn = document.getElementById('nextWeekBtn');
+  if (prevWeekBtn) prevWeekBtn.onclick = () => { weekStart.setDate(weekStart.getDate()-7); selectedDay = new Date(weekStart); render(); };
+  if (nextWeekBtn) nextWeekBtn.onclick = () => { weekStart.setDate(weekStart.getDate()+7); selectedDay = new Date(weekStart); render(); };
+  const addEventBtn = document.getElementById('addEventBtn');
+  if (addEventBtn) addEventBtn.onclick = addEvent;
+  document.querySelectorAll('[data-remove-event]').forEach(b => b.onclick = () => removeEvent(parseInt(b.dataset.removeEvent)));
+
+  const addPersonBtn = document.getElementById('addPersonBtn');
+  if (addPersonBtn) addPersonBtn.onclick = addPerson;
+  document.querySelectorAll('[data-edit-person]').forEach(b => b.onclick = () => editPerson(parseInt(b.dataset.editPerson)));
+  document.querySelectorAll('[data-remove-person]').forEach(b => b.onclick = () => removePerson(parseInt(b.dataset.removePerson)));
+
+  const subRow = document.getElementById('subRow');
+  if (subRow) subRow.onclick = () => goToScreen('subscription');
+  const notifSwitch = document.getElementById('notifSwitch');
+  if (notifSwitch) notifSwitch.onclick = () => { notificationsEnabled = !notificationsEnabled; render(); };
+  const caregiverSwitch = document.getElementById('caregiverSwitch');
+  if (caregiverSwitch) caregiverSwitch.onclick = () => { caregiverShare = !caregiverShare; render(); };
+  const resetBtn = document.getElementById('resetBtn');
+  if (resetBtn) resetBtn.onclick = () => {
+    nextInboxId = 2;
+    inbox = [{id:1, text:'follow-up bloodwork', meta:'detected from dr. patel visit · suggested: 3 weeks from today'}];
+    events = {};
+    askLog = [];
+    saveAskLog();
+    render();
+  };
+
+  const subscribeBtn = document.getElementById('subscribeBtn');
+  if (subscribeBtn) subscribeBtn.onclick = () => {
+    const email = document.getElementById('subEmail').value.trim();
+    const errEl = document.getElementById('subError');
+    if (!email || !email.includes('@')){
+      errEl.textContent = 'enter a valid email first.';
+      errEl.style.display = 'block';
+      return;
+    }
+    isSubscribed = true;
+    render();
+  };
+  const cancelSubBtn = document.getElementById('cancelSubBtn');
+  if (cancelSubBtn) cancelSubBtn.onclick = () => { isSubscribed = false; render(); };
+}
+
+// ---------- top-level wiring ----------
+document.getElementById('settingsBtn').onclick = () => goToScreen('settings');
+document.getElementById('backBtn').onclick = () => {
+  if (currentScreen === 'subscription') goToScreen('settings');
+  else goToScreen(currentTab);
+};
+document.querySelectorAll('#bottomNav button').forEach(btn => btn.onclick = () => goToTab(btn.dataset.tab));
+document.getElementById('micBtn').onclick = () => { listening ? stopListening() : startListening(); };
+
+render();
+</script>
+
+</body>
+</html>
