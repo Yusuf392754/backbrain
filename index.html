@@ -128,6 +128,23 @@
     flex-shrink:0;
   }
   .bottom-mic .status{font-size:11px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bottom-mic .stop-listening{padding:6px 8px;font-size:11px;white-space:nowrap;}
+  .bottom-mic .stop-listening[disabled]{opacity:.45;cursor:not-allowed;}
+  .you-intro{margin-bottom:10px;}
+  .knowledge-map{position:relative;min-height:360px;margin:10px 0 16px;border:1px solid var(--border);border-radius:16px;background:radial-gradient(circle at center, #fff 0 18%, #f5f7f8 70%);overflow:hidden;}
+  .knowledge-map .map-line{position:absolute;left:50%;top:50%;height:1px;width:38%;background:var(--border);transform-origin:left center;}
+  .knowledge-node{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid var(--border);background:var(--paper);border-radius:50%;font-size:11px;padding:8px;cursor:pointer;box-shadow:0 3px 10px rgba(27,36,48,.08);transition:transform .16s ease, border-color .16s ease;}
+  .knowledge-node:hover{transform:scale(1.05);border-color:var(--accent);}
+  .knowledge-node.center{left:50%;top:50%;width:94px;height:94px;transform:translate(-50%,-50%);background:var(--ink);color:#fff;border-color:var(--ink);font-size:14px;font-weight:600;z-index:2;}
+  .knowledge-node.center:hover{transform:translate(-50%,-50%) scale(1.05);}
+  .knowledge-node.topic{width:76px;height:76px;}
+  .knowledge-node.topic.friends{left:7%;top:14%;}
+  .knowledge-node.topic.passwords{right:7%;top:14%;}
+  .knowledge-node.topic.health{left:7%;bottom:14%;}
+  .knowledge-node.topic.schedule{right:7%;bottom:14%;}
+  .knowledge-node.topic.memories{left:50%;top:7%;transform:translateX(-50%);}
+  .knowledge-node.topic.memories:hover{transform:translateX(-50%) scale(1.05);}
+  .knowledge-detail{border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--bg);font-size:12px;line-height:1.5;}
   .nav{display:flex;border-top:1px solid var(--border);flex-shrink:0;}
   .nav button{
     flex:1;border:none;background:none;border-radius:0;padding:10px 0;
@@ -170,8 +187,9 @@
   <div class="screen" id="screenContent"></div>
 
   <div class="bottom-mic" id="bottomMic">
-    <button class="mic-btn" id="micBtn">mic</button>
-    <span class="status" id="voiceStatus">tap the mic to listen for "hey backbrain"</span>
+    <button class="mic-btn" id="micBtn">start listening</button>
+    <button class="stop-listening" id="stopListeningBtn" disabled>turn off listening</button>
+    <span class="status" id="voiceStatus">voice off — press start listening</span>
   </div>
 
   <div class="nav" id="bottomNav">
@@ -179,6 +197,7 @@
     <button data-tab="timeline">timeline</button>
     <button data-tab="calendar">calendar</button>
     <button data-tab="people">people</button>
+    <button data-tab="you">you</button>
   </div>
 </div>
 
@@ -367,7 +386,9 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 let recognition = null;
 let listening = false;
 let awaitingCommand = false;
-let voiceStatusText = 'tap the mic to listen for "hey backbrain"';
+let voiceStatusText = 'voice off — press start listening';
+let selectedKnowledge = 'overview';
+let lastVoiceAnswer = '';
 
 function setVoiceStatus(text){
   voiceStatusText = text;
@@ -375,22 +396,122 @@ function setVoiceStatus(text){
   if (el) el.textContent = text;
 }
 
-function handleTranscript(raw){
+function speakText(text){
+  lastVoiceAnswer = text;
+  if ('speechSynthesis' in window){
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1;
+    window.speechSynthesis.speak(utter);
+  }
+}
+
+function voiceAction(message){
+  setVoiceStatus(message);
+  speakText(message);
+}
+
+function addVoiceReminder(text){
+  const clean = text.trim();
+  if (!clean) return voiceAction('tell me what to remember.');
+  inbox.push({id: nextInboxId++, text: clean, meta: 'added by voice'});
+  saveState();
+  goToTab('home');
+  voiceAction(`remembered: ${clean}`);
+}
+
+function addVoiceEvent(text){
+  const clean = text.trim();
+  if (!clean) return voiceAction('tell me the event to add.');
+  const key = dateKey(selectedDay);
+  if (!events[key]) events[key] = [];
+  events[key].push({id: nextEventId++, text: clean, time: 'time tbd', source:'you'});
+  saveState();
+  goToTab('calendar');
+  voiceAction(`added ${clean} to your calendar.`);
+}
+
+function deleteVoiceEvent(text){
+  const clean = text.trim().toLowerCase();
+  const key = dateKey(selectedDay);
+  const match = (events[key] || []).find(e => e.text.toLowerCase().includes(clean));
+  if (!match) return voiceAction(`i couldn't find ${text.trim()} on the selected day.`);
+  events[key] = events[key].filter(e => e.id !== match.id);
+  if (events[key].length === 0) delete events[key];
+  saveState();
+  render();
+  voiceAction(`deleted ${match.text} from your calendar.`);
+}
+
+function handleVoiceCommand(raw){
   const text = raw.toLowerCase().trim();
   if (!text) return;
-  if (awaitingCommand){
-    awaitingCommand = false;
-    askQuestion(text);
+  if (text === 'turn off listening' || text === 'stop listening' || text === 'stop listening now'){
+    stopListening();
     return;
   }
+  if (text === 'turn on listening' || text === 'start listening'){
+    startListening();
+    return;
+  }
+  if (text === 'go home' || text === 'show home'){
+    goToTab('home');
+    return voiceAction('home.');
+  }
+  if (text.startsWith('remember ') || text.startsWith('add reminder ')){
+    return addVoiceReminder(text.replace(/^add reminder |^remember /, ''));
+  }
+  if (text.startsWith('add event ') || text.startsWith('schedule ')){
+    return addVoiceEvent(text.replace(/^add event |^schedule /, ''));
+  }
+  if (text.startsWith('delete event ') || text.startsWith('remove event ')){
+    return deleteVoiceEvent(text.replace(/^delete event |^remove event /, ''));
+  }
+  if (text.includes('calendar') || text.includes('schedule')){
+    goToTab('calendar');
+    return voiceAction('calendar.');
+  }
+  if (text.includes('timeline')){
+    goToTab('timeline');
+    return voiceAction('timeline.');
+  }
+  if (text.includes('people') || text.includes('who is')){
+    goToTab('people');
+    return voiceAction('people.');
+  }
+  if (text.includes('you map') || text === 'show you' || text === 'open you' || text.includes('knowledge map')){
+    goToTab('you');
+    return voiceAction('your knowledge map.');
+  }
+  const topic = ['friends','passwords','health','schedule','memories'].find(name => text.includes(name));
+  if (topic && (text.includes('show') || text.includes('open') || text.includes('tell me'))){
+    selectedKnowledge = topic;
+    goToTab('you');
+    return voiceAction(`${topic}.`);
+  }
+  if (text === 'repeat that' || text === 'repeat'){
+    return voiceAction(lastVoiceAnswer || 'there is nothing to repeat yet.');
+  }
+  askQuestion(text);
+}
+
+function handleTranscript(raw){
+  let text = raw.toLowerCase().trim();
+  if (!text) return;
   const wake = 'hey backbrain';
-  if (text.includes(wake)){
-    const after = text.split(wake)[1].trim();
-    if (after.length > 2){
-      askQuestion(after);
-    } else {
+  const hasWake = text.includes(wake);
+  if (hasWake) text = text.split(wake).slice(1).join(wake).trim();
+  if (text === 'turn off listening' || text === 'stop listening') return handleVoiceCommand(text);
+  if (awaitingCommand){
+    awaitingCommand = false;
+    handleVoiceCommand(text);
+    return;
+  }
+  if (hasWake){
+    if (text.length > 1) handleVoiceCommand(text);
+    else {
       awaitingCommand = true;
-      setVoiceStatus('listening for your question...');
+      setVoiceStatus('listening for your command...');
     }
   }
 }
@@ -419,7 +540,7 @@ function startListening(){
   try{
     recognition.start();
     listening = true;
-    setVoiceStatus('listening — say "hey backbrain" any time.');
+    setVoiceStatus('listening — say “hey backbrain” then a command.');
     updateMicBtn();
   }catch(e){
     setVoiceStatus('could not start the mic.');
@@ -429,13 +550,22 @@ function startListening(){
 function stopListening(){
   listening = false;
   if (recognition) recognition.stop();
-  setVoiceStatus('mic off. tap to listen again.');
+  awaitingCommand = false;
+  setVoiceStatus('voice off — press start listening');
   updateMicBtn();
 }
 
 function updateMicBtn(){
   const btn = document.getElementById('micBtn');
-  if (btn) btn.classList.toggle('live', listening);
+  const stopBtn = document.getElementById('stopListeningBtn');
+  if (btn){
+    btn.classList.toggle('live', listening);
+    btn.textContent = listening ? 'listening' : 'start listening';
+  }
+  if (stopBtn){
+    stopBtn.disabled = !listening;
+    stopBtn.textContent = 'turn off listening';
+  }
 }
 
 // ---------- actions ----------
@@ -524,7 +654,7 @@ function render(){
   document.getElementById('bottomMic').style.display = (currentScreen==='settings'||currentScreen==='subscription') ? 'none' : 'flex';
   document.getElementById('bottomNav').style.display = (currentScreen==='settings'||currentScreen==='subscription') ? 'none' : 'flex';
 
-  const titles = {home:'backbrain', timeline:"sarah's day", calendar:'calendar', people:"who's who", settings:'settings', subscription:'subscription'};
+  const titles = {home:'backbrain', timeline:"sarah's day", calendar:'calendar', people:"who's who", you:'you', settings:'settings', subscription:'subscription'};
   document.getElementById('topTitle').textContent = titles[currentScreen] || 'backbrain';
 
   document.querySelectorAll('#bottomNav button').forEach(btn => {
@@ -536,6 +666,7 @@ function render(){
   else if (currentScreen === 'timeline') el.innerHTML = renderTimeline();
   else if (currentScreen === 'calendar') el.innerHTML = renderCalendar();
   else if (currentScreen === 'people') el.innerHTML = renderPeople();
+  else if (currentScreen === 'you') el.innerHTML = renderYou();
   else if (currentScreen === 'settings') el.innerHTML = renderSettings();
   else if (currentScreen === 'subscription') el.innerHTML = renderSubscription();
 
@@ -594,6 +725,7 @@ function renderHome(){
 
     <div class="section-head" style="margin-top:16px;"><span class="title">moments caught today</span></div>
     <div class="moments-row">${momentsHtml}</div>
+    <div class="knowledge-detail" style="margin-top:16px;"><strong>voice shortcuts</strong><br>say “hey backbrain, show calendar,” “remember call the pharmacy,” “schedule dentist appointment,” or “turn off listening.”</div>
   `;
 }
 
@@ -660,6 +792,35 @@ function renderCalendar(){
   `;
 }
 
+function renderYou(){
+  const details = {
+    overview: 'This is your private map of the things BackBrain can help you remember. Select a node to explore a category.',
+    friends: people.length ? `${people.length} people are in your circle: ${people.map(p => p.name).join(', ')}.` : 'No people have been added yet.',
+    passwords: 'No passwords are stored in this static prototype. Use a dedicated password manager; never place real passwords in this node.',
+    health: 'Health notes belong in a protected medical record, not a demo browser vault. BackBrain can organize reminders, but it is not medical advice.',
+    schedule: `${Object.values(events).flat().length} calendar event(s) are currently saved in this browser.`,
+    memories: `${moments.length} sample moments are available in the timeline. User-authored memory capture is next.`,
+  };
+  const selected = details[selectedKnowledge] || details.overview;
+  return `
+    <h1 class="hero">you</h1>
+    <p class="sub you-intro">a map of what BackBrain knows — kept clear, connected, and under your control.</p>
+    <div class="knowledge-map" aria-label="Your knowledge map">
+      <div class="map-line" style="transform:rotate(-146deg);"></div>
+      <div class="map-line" style="transform:rotate(-34deg);"></div>
+      <div class="map-line" style="transform:rotate(146deg);"></div>
+      <div class="map-line" style="transform:rotate(34deg);"></div>
+      <button class="knowledge-node center" data-knowledge="overview">you</button>
+      <button class="knowledge-node topic memories" data-knowledge="memories">memories</button>
+      <button class="knowledge-node topic friends" data-knowledge="friends">friends</button>
+      <button class="knowledge-node topic passwords" data-knowledge="passwords">passwords</button>
+      <button class="knowledge-node topic health" data-knowledge="health">health</button>
+      <button class="knowledge-node topic schedule" data-knowledge="schedule">schedule</button>
+    </div>
+    <div class="knowledge-detail"><strong>${escapeHtml(selectedKnowledge)}</strong><br>${escapeHtml(selected)}</div>
+  `;
+}
+
 function renderPeople(){
   const rows = people.map((p, idx) => `
     <div class="person-card">
@@ -695,6 +856,14 @@ function renderSettings(){
     <div class="settings-row">
       <div><div class="st-title">share with a caregiver</div><div class="st-sub">let a family member view your schedule.</div></div>
       <button id="caregiverSwitch">${caregiverShare ? 'on' : 'off'}</button>
+    </div>
+    <div class="settings-row">
+      <div><div class="st-title">security</div><div class="st-sub">static mode keeps data in this browser; no server sign-in is active.</div></div>
+      <span>local-only</span>
+    </div>
+    <div class="knowledge-detail" style="margin-top:12px;">
+      <strong>security center</strong><br>
+      This prototype does not claim end-to-end encryption or account security. Do not store real passwords, medical records, or payment details here. A production release needs a real identity provider, phishing-resistant MFA, server-side session protection, encrypted database storage, key management, and client-side encryption keys that never reach the server.
     </div>
     <div class="settings-row" style="border-bottom:none;">
       <div><div class="st-title">reset demo data</div><div class="st-sub">clears everything and reloads the sample day.</div></div>
@@ -754,6 +923,7 @@ function wireScreenEvents(){
   if (addPersonBtn) addPersonBtn.onclick = addPerson;
   document.querySelectorAll('[data-edit-person]').forEach(b => b.onclick = () => editPerson(parseInt(b.dataset.editPerson)));
   document.querySelectorAll('[data-remove-person]').forEach(b => b.onclick = () => removePerson(parseInt(b.dataset.removePerson)));
+  document.querySelectorAll('[data-knowledge]').forEach(b => b.onclick = () => { selectedKnowledge = b.dataset.knowledge; render(); });
 
   const subRow = document.getElementById('subRow');
   if (subRow) subRow.onclick = () => goToScreen('subscription');
@@ -806,6 +976,7 @@ document.getElementById('backBtn').onclick = () => {
 };
 document.querySelectorAll('#bottomNav button').forEach(btn => btn.onclick = () => goToTab(btn.dataset.tab));
 document.getElementById('micBtn').onclick = () => { listening ? stopListening() : startListening(); };
+document.getElementById('stopListeningBtn').onclick = () => stopListening();
 
 render();
 </script>

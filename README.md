@@ -73,3 +73,11 @@ The repository is configured with `vercel.json` for clean URLs and basic browser
 The Vercel-compatible web version now stores the complete mutable demo state in a versioned browser snapshot named `backbrain_state_v1`. Reminders, calendar events, people, notification and caregiver settings, mock subscription state, and ask history all survive reloads. The reset action restores the full sample state rather than only clearing one screen.
 
 The web entry point has been exercised over local HTTP, which matches static hosting behavior: ask/answer, reminder add/edit/confirm, calendar add/delete, people add/edit/delete, settings toggles, subscription validation and cancellation, reload persistence, and reset all passed. The browser prototype and root `index.html` are kept identical to prevent deployment drift.
+
+## Voice, You map, and security boundary
+
+The web app now has explicit `start listening` and `turn off listening` controls. After saying “hey backbrain,” the command router can navigate home, timeline, calendar, people, or the You map; add reminders; add or delete calendar events; open knowledge-map topics; repeat the last spoken response; and fall back to the existing ask flow. Microphone access still requires an HTTPS origin and explicit browser permission.
+
+The new You screen is a connected-node map centered on `you`, with topic nodes for `friends`, `passwords`, `health`, `schedule`, and `memories`. The passwords node intentionally does not store credentials and points users to a dedicated password manager.
+
+The static site does not pretend to provide secure sign-in or true end-to-end encryption. Browser localStorage is not a secure credential vault, and a static client has no identity provider, server-side session boundary, or multi-device key exchange. The app now exposes this limitation in its security center and applies conservative browser headers, including a microphone-only Permissions Policy. A real E2EE release requires a backend identity system, phishing-resistant MFA, encrypted server storage, and per-user client-side keys that the server cannot read.
