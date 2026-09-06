@@ -18,12 +18,33 @@
     --sage:#6F8F76;
     --sage-light:#E1EAE2;
     --danger:#C0392B;
+    --you:#8BCFF2;
+    --you-deep:#287EA8;
+    --you-soft:#E5F6FD;
+    --map-grid:rgba(40,126,168,.10);
     --radius:10px;
+  }
+  [data-theme="dark"]{
+    --ink:#EAF1F6;
+    --ink-soft:#AAB8C4;
+    --border:#334452;
+    --bg:#0D151C;
+    --paper:#17232D;
+    --accent:#E6B66C;
+    --accent-light:#4A3924;
+    --sage:#8EBB98;
+    --sage-light:#213A2A;
+    --danger:#FF8D82;
+    --you:#8BD7FF;
+    --you-deep:#4DB1DE;
+    --you-soft:#173B4C;
+    --map-grid:rgba(139,215,255,.13);
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
     background:var(--bg);
+    transition:background .2s ease,color .2s ease;
     color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     display:flex;
@@ -131,19 +152,22 @@
   .bottom-mic .stop-listening{padding:6px 8px;font-size:11px;white-space:nowrap;}
   .bottom-mic .stop-listening[disabled]{opacity:.45;cursor:not-allowed;}
   .you-intro{margin-bottom:10px;}
-  .knowledge-map{position:relative;min-height:360px;margin:10px 0 16px;border:1px solid var(--border);border-radius:16px;background:radial-gradient(circle at center, #fff 0 18%, #f5f7f8 70%);overflow:hidden;}
-  .knowledge-map .map-line{position:absolute;left:50%;top:50%;height:1px;width:38%;background:var(--border);transform-origin:left center;}
-  .knowledge-node{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid var(--border);background:var(--paper);border-radius:50%;font-size:11px;padding:8px;cursor:pointer;box-shadow:0 3px 10px rgba(27,36,48,.08);transition:transform .16s ease, border-color .16s ease;}
-  .knowledge-node:hover{transform:scale(1.05);border-color:var(--accent);}
-  .knowledge-node.center{left:50%;top:50%;width:94px;height:94px;transform:translate(-50%,-50%);background:var(--ink);color:#fff;border-color:var(--ink);font-size:14px;font-weight:600;z-index:2;}
-  .knowledge-node.center:hover{transform:translate(-50%,-50%) scale(1.05);}
-  .knowledge-node.topic{width:76px;height:76px;}
-  .knowledge-node.topic.friends{left:7%;top:14%;}
-  .knowledge-node.topic.passwords{right:7%;top:14%;}
-  .knowledge-node.topic.health{left:7%;bottom:14%;}
-  .knowledge-node.topic.schedule{right:7%;bottom:14%;}
-  .knowledge-node.topic.memories{left:50%;top:7%;transform:translateX(-50%);}
-  .knowledge-node.topic.memories:hover{transform:translateX(-50%) scale(1.05);}
+  .knowledge-map{position:relative;min-height:390px;margin:10px 0 16px;border:1px solid var(--border);border-radius:16px;background:radial-gradient(circle at center, var(--you-soft) 0 12%, var(--paper) 45%, var(--bg) 100%);overflow:hidden;perspective:900px;isolation:isolate;}
+  .knowledge-map::before{content:'';position:absolute;inset:0;background-image:linear-gradient(var(--map-grid) 1px,transparent 1px),linear-gradient(90deg,var(--map-grid) 1px,transparent 1px);background-size:26px 26px;opacity:.7;transform:perspective(700px) rotateX(58deg) scale(1.3);transform-origin:center bottom;pointer-events:none;}
+  .knowledge-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible;}
+  .knowledge-links line{stroke:var(--you);stroke-width:1.2;stroke-dasharray:4 4;opacity:.55;}
+  .knowledge-node{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid var(--border);background:var(--paper);color:var(--ink);border-radius:50%;font-size:11px;padding:8px;cursor:grab;box-shadow:0 8px 18px rgba(27,36,48,.16),inset 0 0 0 1px rgba(255,255,255,.16);transition:box-shadow .16s ease,border-color .16s ease;z-index:2;touch-action:none;user-select:none;}
+  .knowledge-node:active{cursor:grabbing;}
+  .knowledge-node:hover{border-color:var(--you);box-shadow:0 12px 24px rgba(40,126,168,.24);}
+  .knowledge-node.selected{border:2px solid var(--you-deep);box-shadow:0 0 0 4px var(--you-soft),0 14px 30px rgba(40,126,168,.28);}
+  .knowledge-node.center{left:50%;top:50%;width:102px;height:102px;transform:translate(-50%,-50%) translateZ(55px);background:var(--you);color:#0B2A38;border-color:var(--you-deep);font-size:15px;font-weight:700;z-index:3;cursor:pointer;}
+  .knowledge-node.center:hover{transform:translate(-50%,-50%) translateZ(70px) scale(1.05);}
+  .knowledge-node.topic{width:82px;height:82px;}
+  .knowledge-node.custom{border-style:dashed;}
+  .knowledge-node .node-z{position:absolute;right:-3px;bottom:-3px;width:14px;height:14px;border-radius:50%;background:var(--you-deep);color:#fff;font-size:8px;line-height:14px;}
+  .map-tools{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;}
+  .map-tools button{font-size:11px;padding:5px 8px;}
+  .map-hint{font-size:11px;color:var(--ink-soft);margin:0 0 8px;}
   .knowledge-detail{border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--bg);font-size:12px;line-height:1.5;}
   .nav{display:flex;border-top:1px solid var(--border);flex-shrink:0;}
   .nav button{
@@ -237,6 +261,15 @@ let weekStart = startOfWeek(new Date());
 let notificationsEnabled = true;
 let caregiverShare = false;
 let isSubscribed = false;
+let theme = 'light';
+let nextNodeId = 6;
+let knowledgeNodes = [
+  {id:'friends', label:'friends', detail:'People in your circle and the context you have saved about them.', x:16, y:20, z:10, color:'#F4FBFF', locked:false},
+  {id:'passwords', label:'passwords', detail:'No real passwords are stored in this static prototype. Use a dedicated password manager.', x:78, y:20, z:14, color:'#F4FBFF', locked:false},
+  {id:'health', label:'health', detail:'Health reminders and notes should be protected in a real medical record.', x:16, y:76, z:8, color:'#F4FBFF', locked:false},
+  {id:'schedule', label:'schedule', detail:'Calendar events and reminders currently saved in this browser.', x:78, y:76, z:12, color:'#F4FBFF', locked:false},
+  {id:'memories', label:'memories', detail:'Moments captured in your timeline and future user-authored memories.', x:50, y:11, z:18, color:'#F4FBFF', locked:false}
+];
 
 const STATE_KEY = 'backbrain_state_v1';
 
@@ -268,7 +301,10 @@ function saveState(){
       askLog: askLog.slice(0,20),
       notificationsEnabled,
       caregiverShare,
-      isSubscribed
+      isSubscribed,
+      theme,
+      nextNodeId,
+      knowledgeNodes
     };
     localStorage.setItem(STATE_KEY, JSON.stringify(snapshot));
     localStorage.setItem(ASK_LOG_KEY, JSON.stringify(snapshot.askLog));
@@ -289,12 +325,21 @@ function loadState(){
     if (typeof saved.notificationsEnabled === 'boolean') notificationsEnabled = saved.notificationsEnabled;
     if (typeof saved.caregiverShare === 'boolean') caregiverShare = saved.caregiverShare;
     if (typeof saved.isSubscribed === 'boolean') isSubscribed = saved.isSubscribed;
+    if (saved.theme === 'light' || saved.theme === 'dark') theme = saved.theme;
+    if (Number.isInteger(saved.nextNodeId)) nextNodeId = saved.nextNodeId;
+    if (Array.isArray(saved.knowledgeNodes)) knowledgeNodes = saved.knowledgeNodes.filter(n => n && n.id && n.label && !n.locked);
   }catch(e){}
 }
 
 function saveAskLog(){ saveState(); }
 
 loadState();
+
+function applyTheme(){
+  document.documentElement.dataset.theme = theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = theme === 'dark' ? '#0D151C' : '#E5F6FD';
+}
 
 // ---------- modal helper ----------
 function showModal(title, fields){
@@ -792,32 +837,100 @@ function renderCalendar(){
   `;
 }
 
+let draggingNodeId = null;
+
+function clamp(value, min, max){ return Math.max(min, Math.min(max, value)); }
+function nodeById(id){ return knowledgeNodes.find(n => n.id === id); }
+function nodeDetail(node){
+  if (!node) return 'This is your private map of the things BackBrain can help you remember.';
+  if (node.id === 'friends') return people.length ? `${people.length} people are in your circle: ${people.map(p => p.name).join(', ')}.` : 'No people have been added yet.';
+  if (node.id === 'schedule') return `${Object.values(events).flat().length} calendar event(s) are currently saved in this browser.`;
+  if (node.id === 'memories') return `${moments.length} sample moments are available in the timeline. User-authored memory capture is next.`;
+  return node.detail || 'A customizable part of your private map.';
+}
+function mapLineMarkup(node){
+  const x = Number(node.x) || 50;
+  const y = Number(node.y) || 50;
+  return `<line x1="50%" y1="50%" x2="${x}%" y2="${y}%"></line>`;
+}
+function mapNodeMarkup(node){
+  const selected = selectedKnowledge === node.id ? ' selected' : '';
+  const custom = ['friends','passwords','health','schedule','memories'].includes(node.id) ? '' : ' custom';
+  return `<button class="knowledge-node topic${custom}${selected}" data-knowledge="${escapeHtml(node.id)}" data-drag-node="${escapeHtml(node.id)}" style="left:${clamp(Number(node.x)||50,5,95)}%;top:${clamp(Number(node.y)||50,8,92)}%;z-index:${clamp(Number(node.z)||10,1,40)};transform:translate(-50%,-50%) translateZ(${clamp(Number(node.z)||10,0,80)}px);background:${escapeHtml(node.color || 'var(--paper)')};" title="drag to move • click to select"><span>${escapeHtml(node.label)}</span><span class="node-z">${clamp(Number(node.z)||10,0,80)}</span></button>`;
+}
+async function addKnowledgeNode(){
+  const r = await showModal('add knowledge node', [
+    {key:'label', label:'title', placeholder:'e.g. projects'},
+    {key:'detail', label:'what belongs here?', placeholder:'a short description'},
+    {key:'color', label:'node color', type:'color', value:'#F4FBFF'}
+  ]);
+  if (!r || !r.label) return;
+  const id = 'node_' + nextNodeId++;
+  knowledgeNodes.push({id, label:r.label, detail:r.detail || 'A new part of your map.', x:50, y:50, z:16, color:r.color || '#F4FBFF', locked:false});
+  selectedKnowledge = id;
+  saveState();
+  render();
+}
+async function editKnowledgeNode(id){
+  const node = nodeById(id);
+  if (!node) return;
+  const r = await showModal('edit knowledge node', [
+    {key:'label', label:'title', value:node.label},
+    {key:'detail', label:'what belongs here?', value:node.detail},
+    {key:'color', label:'node color', type:'color', value:node.color || '#F4FBFF'}
+  ]);
+  if (!r || !r.label) return;
+  node.label = r.label;
+  node.detail = r.detail;
+  node.color = r.color || node.color;
+  saveState();
+  render();
+}
+function removeKnowledgeNode(id){
+  const node = nodeById(id);
+  if (!node) return;
+  knowledgeNodes = knowledgeNodes.filter(n => n.id !== id);
+  selectedKnowledge = 'overview';
+  saveState();
+  render();
+}
+function resetKnowledgeLayout(){
+  const defaults = {friends:[16,20,10],passwords:[78,20,14],health:[16,76,8],schedule:[78,76,12],memories:[50,11,18]};
+  knowledgeNodes.forEach(n => { const d = defaults[n.id]; if (d){ n.x=d[0]; n.y=d[1]; n.z=d[2]; } });
+  saveState();
+  render();
+}
+function updateNodePosition(id, event){
+  const node = nodeById(id);
+  const map = document.querySelector('.knowledge-map');
+  if (!node || !map) return;
+  const rect = map.getBoundingClientRect();
+  node.x = clamp(((event.clientX - rect.left) / rect.width) * 100, 5, 95);
+  node.y = clamp(((event.clientY - rect.top) / rect.height) * 100, 8, 92);
+  const el = document.querySelector(`[data-drag-node="${CSS.escape(id)}"]`);
+  if (el){ el.style.left = `${node.x}%`; el.style.top = `${node.y}%`; }
+  saveState();
+  const lines = document.querySelectorAll('.knowledge-links line');
+  const index = knowledgeNodes.findIndex(n => n.id === id);
+  if (lines[index]){ lines[index].setAttribute('x2', `${node.x}%`); lines[index].setAttribute('y2', `${node.y}%`); }
+}
 function renderYou(){
-  const details = {
-    overview: 'This is your private map of the things BackBrain can help you remember. Select a node to explore a category.',
-    friends: people.length ? `${people.length} people are in your circle: ${people.map(p => p.name).join(', ')}.` : 'No people have been added yet.',
-    passwords: 'No passwords are stored in this static prototype. Use a dedicated password manager; never place real passwords in this node.',
-    health: 'Health notes belong in a protected medical record, not a demo browser vault. BackBrain can organize reminders, but it is not medical advice.',
-    schedule: `${Object.values(events).flat().length} calendar event(s) are currently saved in this browser.`,
-    memories: `${moments.length} sample moments are available in the timeline. User-authored memory capture is next.`,
-  };
-  const selected = details[selectedKnowledge] || details.overview;
+  const selectedNode = nodeById(selectedKnowledge);
+  const selectedTitle = selectedNode ? selectedNode.label : 'overview';
+  const selected = nodeDetail(selectedNode);
+  const nodesHtml = knowledgeNodes.map(mapNodeMarkup).join('');
+  const linesHtml = knowledgeNodes.map(mapLineMarkup).join('');
   return `
     <h1 class="hero">you</h1>
-    <p class="sub you-intro">a map of what BackBrain knows — kept clear, connected, and under your control.</p>
-    <div class="knowledge-map" aria-label="Your knowledge map">
-      <div class="map-line" style="transform:rotate(-146deg);"></div>
-      <div class="map-line" style="transform:rotate(-34deg);"></div>
-      <div class="map-line" style="transform:rotate(146deg);"></div>
-      <div class="map-line" style="transform:rotate(34deg);"></div>
-      <button class="knowledge-node center" data-knowledge="overview">you</button>
-      <button class="knowledge-node topic memories" data-knowledge="memories">memories</button>
-      <button class="knowledge-node topic friends" data-knowledge="friends">friends</button>
-      <button class="knowledge-node topic passwords" data-knowledge="passwords">passwords</button>
-      <button class="knowledge-node topic health" data-knowledge="health">health</button>
-      <button class="knowledge-node topic schedule" data-knowledge="schedule">schedule</button>
+    <p class="sub you-intro">a living 3D-style map of what BackBrain knows — drag, edit, and shape it your way.</p>
+    <div class="map-tools"><button id="addKnowledgeBtn" class="primary">+ add node</button><button id="resetMapBtn">reset layout</button><button id="editKnowledgeBtn" ${selectedNode ? '' : 'disabled'}>edit selected</button><button id="removeKnowledgeBtn" ${selectedNode ? '' : 'disabled'}>remove selected</button></div>
+    <p class="map-hint">drag nodes to move them. Each move auto-saves. Changes from another tab auto-refresh here.</p>
+    <div class="knowledge-map" aria-label="Your customizable knowledge map">
+      <svg class="knowledge-links" viewBox="0 0 100 100" preserveAspectRatio="none">${linesHtml}</svg>
+      <button class="knowledge-node center${selectedKnowledge === 'overview' ? ' selected' : ''}" data-knowledge="overview">you</button>
+      ${nodesHtml}
     </div>
-    <div class="knowledge-detail"><strong>${escapeHtml(selectedKnowledge)}</strong><br>${escapeHtml(selected)}</div>
+    <div class="knowledge-detail"><strong>${escapeHtml(selectedTitle)}</strong><br>${escapeHtml(selected)}</div>
   `;
 }
 
@@ -848,6 +961,10 @@ function renderSettings(){
     <div class="settings-row" id="subRow" style="cursor:pointer;">
       <div><div class="st-title">subscription</div><div class="st-sub">${isSubscribed ? 'active — $19/month' : 'not subscribed'}</div></div>
       <span>view</span>
+    </div>
+    <div class="settings-row">
+      <div><div class="st-title">appearance</div><div class="st-sub">switch between a calm light canvas and a low-glare dark canvas.</div></div>
+      <button id="themeSwitch">${theme === 'dark' ? 'dark' : 'light'}</button>
     </div>
     <div class="settings-row">
       <div><div class="st-title">reminder notifications</div><div class="st-sub">get notified when something is coming up.</div></div>
@@ -925,8 +1042,30 @@ function wireScreenEvents(){
   document.querySelectorAll('[data-remove-person]').forEach(b => b.onclick = () => removePerson(parseInt(b.dataset.removePerson)));
   document.querySelectorAll('[data-knowledge]').forEach(b => b.onclick = () => { selectedKnowledge = b.dataset.knowledge; render(); });
 
+  const addKnowledgeBtn = document.getElementById('addKnowledgeBtn');
+  if (addKnowledgeBtn) addKnowledgeBtn.onclick = addKnowledgeNode;
+  const resetMapBtn = document.getElementById('resetMapBtn');
+  if (resetMapBtn) resetMapBtn.onclick = resetKnowledgeLayout;
+  const editKnowledgeBtn = document.getElementById('editKnowledgeBtn');
+  if (editKnowledgeBtn && selectedKnowledge !== 'overview') editKnowledgeBtn.onclick = () => editKnowledgeNode(selectedKnowledge);
+  const removeKnowledgeBtn = document.getElementById('removeKnowledgeBtn');
+  if (removeKnowledgeBtn && selectedKnowledge !== 'overview') removeKnowledgeBtn.onclick = () => removeKnowledgeNode(selectedKnowledge);
+  document.querySelectorAll('[data-drag-node]').forEach(nodeEl => {
+    nodeEl.addEventListener('pointerdown', (event) => {
+      draggingNodeId = nodeEl.dataset.dragNode;
+      nodeEl.setPointerCapture(event.pointerId);
+      selectedKnowledge = draggingNodeId;
+      nodeEl.classList.add('selected');
+    });
+    nodeEl.addEventListener('pointermove', (event) => { if (draggingNodeId === nodeEl.dataset.dragNode) updateNodePosition(draggingNodeId, event); });
+    nodeEl.addEventListener('pointerup', () => { if (draggingNodeId === nodeEl.dataset.dragNode){ draggingNodeId = null; saveState(); render(); } });
+    nodeEl.addEventListener('click', () => { if (!draggingNodeId) { selectedKnowledge = nodeEl.dataset.dragNode; render(); } });
+  });
+
   const subRow = document.getElementById('subRow');
   if (subRow) subRow.onclick = () => goToScreen('subscription');
+  const themeSwitch = document.getElementById('themeSwitch');
+  if (themeSwitch) themeSwitch.onclick = () => { theme = theme === 'dark' ? 'light' : 'dark'; applyTheme(); saveState(); render(); };
   const notifSwitch = document.getElementById('notifSwitch');
   if (notifSwitch) notifSwitch.onclick = () => { notificationsEnabled = !notificationsEnabled; saveState(); render(); };
   const caregiverSwitch = document.getElementById('caregiverSwitch');
@@ -947,6 +1086,16 @@ function wireScreenEvents(){
     notificationsEnabled = true;
     caregiverShare = false;
     isSubscribed = false;
+    theme = 'light';
+    knowledgeNodes = [
+      {id:'friends', label:'friends', detail:'People in your circle and the context you have saved about them.', x:16, y:20, z:10, color:'#F4FBFF', locked:false},
+      {id:'passwords', label:'passwords', detail:'No real passwords are stored in this static prototype. Use a dedicated password manager.', x:78, y:20, z:14, color:'#F4FBFF', locked:false},
+      {id:'health', label:'health', detail:'Health reminders and notes should be protected in a real medical record.', x:16, y:76, z:8, color:'#F4FBFF', locked:false},
+      {id:'schedule', label:'schedule', detail:'Calendar events and reminders currently saved in this browser.', x:78, y:76, z:12, color:'#F4FBFF', locked:false},
+      {id:'memories', label:'memories', detail:'Moments captured in your timeline and future user-authored memories.', x:50, y:11, z:18, color:'#F4FBFF', locked:false}
+    ];
+    nextNodeId = 6;
+    applyTheme();
     saveState();
     render();
   };
@@ -977,8 +1126,11 @@ document.getElementById('backBtn').onclick = () => {
 document.querySelectorAll('#bottomNav button').forEach(btn => btn.onclick = () => goToTab(btn.dataset.tab));
 document.getElementById('micBtn').onclick = () => { listening ? stopListening() : startListening(); };
 document.getElementById('stopListeningBtn').onclick = () => stopListening();
+window.addEventListener('storage', (event) => { if (event.key === STATE_KEY){ loadState(); applyTheme(); render(); } });
 
+applyTheme();
 render();
+setInterval(() => { if (currentScreen === 'you' && !draggingNodeId) render(); }, 2000);
 </script>
 
 </body>

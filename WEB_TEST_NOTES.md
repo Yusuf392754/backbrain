@@ -17,3 +17,7 @@ Feature-pass notes: the home screen now exposes `start listening` and a disabled
 The voice router was exercised directly with `add event dentist appointment`, and the event rendered in the calendar. The browser microphone itself returned `not-allowed` in the sandbox because microphone permission is unavailable; production voice recognition requires HTTPS and user-granted microphone access. The explicit stop path is implemented for browsers where recognition starts successfully.
 
 The updated settings screen now shows the security center and explicitly states that static mode has no server sign-in or true E2EE. The voice command `show passwords` was routed directly and opened the You map on the passwords node as expected.
+
+Customizable-map pass: the You workspace now renders a perspective grid, depth markers, connectors, draggable topic nodes, and map tools for add node, reset layout, edit selected, and remove selected. A temporary `projects` node was created with a custom description and light-blue color, selected, and rendered in the map. The theme switch changed the app to dark mode, and the dark theme persisted after reload while the home flow continued to render.
+
+The custom-node drag path was exercised against the real map geometry: the `projects` node moved to approximately 34% horizontal and 42% vertical position, and the updated coordinates were saved through the normal state layer.
