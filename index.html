@@ -161,6 +161,14 @@
   .map-tools button{font-size:11px;padding:5px 8px;}
   .map-hint{font-size:11px;color:var(--ink-soft);margin:0 0 8px;}
   .knowledge-detail{border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--bg);font-size:12px;line-height:1.5;}
+  .topic-card{max-width:360px;max-height:72vh;overflow:auto;}
+  .topic-card .topic-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+  .topic-card .topic-card-kicker{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--you-deep);font-weight:700;}
+  .topic-card .topic-card-desc{font-size:12px;color:var(--ink-soft);line-height:1.45;margin:10px 0;}
+  .topic-items{display:grid;gap:6px;margin:10px 0;}
+  .topic-item{border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--bg);font-size:12px;line-height:1.35;}
+  .topic-item small{display:block;color:var(--ink-soft);font-size:10px;margin-top:3px;}
+  .topic-card-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;}
   .nav{display:flex;border-top:1px solid var(--border);flex-shrink:0;}
   .nav button{
     flex:1;border:none;background:none;border-radius:0;padding:10px 0;
@@ -254,13 +262,15 @@ let notificationsEnabled = true;
 let caregiverShare = false;
 let isSubscribed = false;
 let theme = 'light';
+let graphAutoNodes = true;
+let topicCardId = null;
 let nextNodeId = 6;
 let knowledgeNodes = [
-  {id:'friends', label:'friends', detail:'People in your circle and the context you have saved about them.', x:16, y:20, z:10, color:'#F4FBFF', locked:false},
-  {id:'passwords', label:'passwords', detail:'No real passwords are stored in this static prototype. Use a dedicated password manager.', x:78, y:20, z:14, color:'#F4FBFF', locked:false},
-  {id:'health', label:'health', detail:'Health reminders and notes should be protected in a real medical record.', x:16, y:76, z:8, color:'#F4FBFF', locked:false},
-  {id:'schedule', label:'schedule', detail:'Calendar events and reminders currently saved in this browser.', x:78, y:76, z:12, color:'#F4FBFF', locked:false},
-  {id:'memories', label:'memories', detail:'Moments captured in your timeline and future user-authored memories.', x:50, y:11, z:18, color:'#F4FBFF', locked:false}
+  {id:'friends', label:'friends', detail:'People in your circle and the context you have saved about them.', x:16, y:20, z:10, color:'#F4FBFF', locked:false, items:[]},
+  {id:'passwords', label:'passwords', detail:'No real passwords are stored in this static prototype. Use a dedicated password manager.', x:78, y:20, z:14, color:'#F4FBFF', locked:false, items:[]},
+  {id:'health', label:'health', detail:'Health reminders and notes should be protected in a real medical record.', x:16, y:76, z:8, color:'#F4FBFF', locked:false, items:[]},
+  {id:'schedule', label:'schedule', detail:'Calendar events and reminders currently saved in this browser.', x:78, y:76, z:12, color:'#F4FBFF', locked:false, items:[]},
+  {id:'memories', label:'memories', detail:'Moments captured in your timeline and future user-authored memories.', x:50, y:11, z:18, color:'#F4FBFF', locked:false, items:[]}
 ];
 
 const STATE_KEY = 'backbrain_state_v1';
@@ -295,6 +305,7 @@ function saveState(){
       caregiverShare,
       isSubscribed,
       theme,
+      graphAutoNodes,
       nextNodeId,
       knowledgeNodes
     };
@@ -318,8 +329,9 @@ function loadState(){
     if (typeof saved.caregiverShare === 'boolean') caregiverShare = saved.caregiverShare;
     if (typeof saved.isSubscribed === 'boolean') isSubscribed = saved.isSubscribed;
     if (saved.theme === 'light' || saved.theme === 'dark') theme = saved.theme;
+    if (typeof saved.graphAutoNodes === 'boolean') graphAutoNodes = saved.graphAutoNodes;
     if (Number.isInteger(saved.nextNodeId)) nextNodeId = saved.nextNodeId;
-    if (Array.isArray(saved.knowledgeNodes)) knowledgeNodes = saved.knowledgeNodes.filter(n => n && n.id && n.label && !n.locked);
+    if (Array.isArray(saved.knowledgeNodes)) knowledgeNodes = saved.knowledgeNodes.filter(n => n && n.id && n.label && !n.locked).map(n => ({...n, items:Array.isArray(n.items) ? n.items.slice(0,30) : []}));
   }catch(e){}
 }
 
@@ -409,6 +421,7 @@ function askQuestion(text){
   const answer = answerFor(text);
   askLog.unshift({q: text.trim(), a: answer});
   if (askLog.length > 20) askLog.pop();
+  autoGraphFromActivity('question', text.trim());
   saveAskLog();
   if ('speechSynthesis' in window){
     const utter = new SpeechSynthesisUtterance(answer);
@@ -452,6 +465,7 @@ function addVoiceReminder(text){
   const clean = text.trim();
   if (!clean) return voiceAction('tell me what to remember.');
   inbox.push({id: nextInboxId++, text: clean, meta: 'added by voice'});
+  autoGraphFromActivity('reminder', clean);
   saveState();
   goToTab('home');
   voiceAction(`remembered: ${clean}`);
@@ -463,6 +477,7 @@ function addVoiceEvent(text){
   const key = dateKey(selectedDay);
   if (!events[key]) events[key] = [];
   events[key].push({id: nextEventId++, text: clean, time: 'time tbd', source:'you'});
+  autoGraphFromActivity('event', clean);
   saveState();
   goToTab('calendar');
   voiceAction(`added ${clean} to your calendar.`);
@@ -610,6 +625,7 @@ async function addReminder(){
   const r = await showModal('add reminder', [{key:'text', label:'what needs to be remembered?', placeholder:'e.g. call the pharmacy'}]);
   if (r && r.text){
     inbox.push({id: nextInboxId++, text: r.text, meta: 'added manually'});
+    autoGraphFromActivity('reminder', r.text);
     saveState();
     render();
   }
@@ -634,6 +650,7 @@ async function confirmReminder(id){
   const key = dateKey(d);
   if (!events[key]) events[key] = [];
   events[key].push({id: nextEventId++, text: item.text, time: r.time || 'time tbd', source:'you'});
+  autoGraphFromActivity('event', item.text);
   inbox = inbox.filter(i => i.id !== id);
   saveState();
   render();
@@ -657,6 +674,7 @@ async function addEvent(){
   const key = dateKey(selectedDay);
   if (!events[key]) events[key] = [];
   events[key].push({id: nextEventId++, text: r.text, time: r.time || 'time tbd', source:'you'});
+  autoGraphFromActivity('event', r.text);
   saveState();
   render();
 }
@@ -667,7 +685,7 @@ async function addPerson(){
     {key:'relation', label:'relation', placeholder:'e.g. daughter'},
     {key:'note', label:'note'}
   ]);
-  if (r && r.name){ people.push({name:r.name, relation:r.relation, note:r.note}); saveState(); render(); }
+  if (r && r.name){ people.push({name:r.name, relation:r.relation, note:r.note}); autoGraphFromActivity('person', `${r.name} ${r.relation || ''} ${r.note || ''}`); saveState(); render(); }
 }
 
 async function editPerson(idx){
@@ -677,13 +695,13 @@ async function editPerson(idx){
     {key:'relation', label:'relation', value:p.relation},
     {key:'note', label:'note', value:p.note}
   ]);
-  if (r && r.name){ people[idx] = {name:r.name, relation:r.relation, note:r.note}; saveState(); render(); }
+  if (r && r.name){ people[idx] = {name:r.name, relation:r.relation, note:r.note}; autoGraphFromActivity('person', `${r.name} ${r.relation || ''} ${r.note || ''}`); saveState(); render(); }
 }
 
 function removePerson(idx){ people.splice(idx,1); saveState(); render(); }
 
-function goToScreen(screen){ currentScreen = screen; render(); }
-function goToTab(tab){ currentTab = tab; currentScreen = tab; render(); }
+function goToScreen(screen){ closeTopicCard(); currentScreen = screen; render(); }
+function goToTab(tab){ closeTopicCard(); currentTab = tab; currentScreen = tab; render(); }
 
 // ---------- render ----------
 function render(){
@@ -831,7 +849,7 @@ function renderCalendar(){
 
 let draggingNodeId = null;
 let graphCamera = {yaw:0.55, pitch:-0.18, zoom:1, panX:0, panY:0};
-let graphPointer = {mode:null, x:0, y:0, nodeId:null};
+let graphPointer = {mode:null, x:0, y:0, nodeId:null, moved:false};
 let graphAnimation = 0;
 let graphAutoRotate = true;
 
@@ -849,6 +867,53 @@ function projectGraphPoint(point, width, height){
   return {x:width/2+graphCamera.panX+x1*38*graphCamera.zoom*depth,y:height/2+graphCamera.panY+y1*38*graphCamera.zoom*depth,depth,z:z2};
 }
 function graphNodes(){ return [{id:'overview',label:'you',color:'var(--you)',z:0},...knowledgeNodes]; }
+function graphTextId(text){ return String(text||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,48); }
+function addNodeItem(nodeId, text, source){
+  const node=nodeById(nodeId); if(!node || !text) return;
+  node.items=Array.isArray(node.items)?node.items:[];
+  const id=source || graphTextId(text);
+  if(!node.items.some(item=>item.id===id)) node.items.unshift({id,text:String(text).trim(),source:'auto'});
+  node.items=node.items.slice(0,30);
+}
+function autoGraphFromActivity(kind, payload){
+  if(!graphAutoNodes || !payload) return;
+  const text=typeof payload==='string'?payload:(payload.text||payload.name||'');
+  const lower=text.toLowerCase(); if(!text.trim()) return;
+  let target=null;
+  if(kind==='person' || /friend|family|daughter|son|neighbor|doctor|physician|sarah|michael|pat/.test(lower)) target='friends';
+  else if(kind==='event' || kind==='reminder' || /schedule|appointment|meeting|call|visit|dentist|pharmacy|bloodwork/.test(lower)) target='schedule';
+  else if(kind==='health' || /health|medication|dose|doctor|bloodwork/.test(lower)) target='health';
+  else if(kind==='memory') target='memories';
+  if(target){ addNodeItem(target,text,`${kind}:${graphTextId(text)}`); saveState(); return; }
+  if(kind==='question' && text.trim().length>4){
+    const label=text.trim().split(/\s+/).slice(0,3).join(' ');
+    let node=knowledgeNodes.find(n=>n.autoKey===graphTextId(label));
+    if(!node){
+      const idx=knowledgeNodes.length;
+      node={id:'node_'+nextNodeId++,label,detail:'Automatically created from your BackBrain activity.',x:20+(idx*19)%65,y:18+(idx*27)%65,z:10+(idx*3)%14,color:'#E8F7FF',locked:false,autoKey:graphTextId(label),items:[]};
+      knowledgeNodes.push(node);
+    }
+    addNodeItem(node.id,text,`${kind}:${graphTextId(text)}`); saveState();
+  }
+}
+function closeTopicCard(){const card=document.getElementById('topicCardOverlay');if(card)card.remove();topicCardId=null;}
+function openTopicCard(id){
+  const node=id==='overview'?null:nodeById(id); if(id!=='overview'&&!node)return;
+  closeTopicCard(); topicCardId=id; selectedKnowledge=id; drawGraph(); renderGraphDetail();
+  const title=node?node.label:'you'; const desc=nodeDetail(node); const items=node&&Array.isArray(node.items)?node.items:[];
+  const overlay=document.createElement('div'); overlay.className='modal-overlay'; overlay.id='topicCardOverlay';
+  const box=document.createElement('div'); box.className='modal-box topic-card';
+  box.innerHTML=`<div class="topic-card-head"><div><div class="topic-card-kicker">topic card</div><h3>${escapeHtml(title)}</h3></div><button data-topic-close aria-label="close">close</button></div><p class="topic-card-desc">${escapeHtml(desc)}</p><div class="topic-items">${items.length?items.map(item=>`<div class="topic-item">${escapeHtml(item.text)}<small>${escapeHtml(item.source||'saved')}</small></div>`).join(''):'<div class="topic-item">nothing added here yet.<small>new activity will appear automatically.</small></div>'}</div><div class="topic-card-actions">${node?'<button data-topic-add>+ add detail</button><button data-topic-edit>customize</button><button data-topic-remove>remove node</button>':''}<button data-topic-close class="primary">done</button></div>`;
+  overlay.appendChild(box); document.body.appendChild(overlay);
+  overlay.querySelectorAll('[data-topic-close]').forEach(btn=>btn.onclick=closeTopicCard);
+  const add=overlay.querySelector('[data-topic-add]'); if(add)add.onclick=()=>addTopicDetail(id);
+  const edit=overlay.querySelector('[data-topic-edit]'); if(edit)edit.onclick=async()=>{closeTopicCard();await editKnowledgeNode(id);openTopicCard(id);};
+  const remove=overlay.querySelector('[data-topic-remove]'); if(remove)remove.onclick=()=>{closeTopicCard();removeKnowledgeNode(id);};
+}
+async function addTopicDetail(id){
+  const r=await showModal('add topic detail',[{key:'text',label:'what belongs here?',placeholder:'e.g. ask Sarah about Saturday'}]);
+  if(!r||!r.text)return; addNodeItem(id,r.text,'manual:'+Date.now()); saveState(); render(); openTopicCard(id);
+}
 function graphColors(){ const style=getComputedStyle(document.documentElement); return {ink:style.getPropertyValue('--ink').trim(),soft:style.getPropertyValue('--ink-soft').trim(),border:style.getPropertyValue('--border').trim(),you:style.getPropertyValue('--you').trim(),deep:style.getPropertyValue('--you-deep').trim(),paper:style.getPropertyValue('--paper').trim()}; }
 function drawGraph(){
   const canvas=document.getElementById('knowledgeCanvas');
@@ -891,15 +956,15 @@ function wireGraph(){
   drawGraph();
   canvas.oncontextmenu=(event)=>event.preventDefault();
   canvas.onwheel=(event)=>{event.preventDefault();graphCamera.zoom=clamp(graphCamera.zoom*(event.deltaY<0?1.08:.92),.55,2.6);drawGraph();};
-  canvas.onpointerdown=(event)=>{const hit=graphHit(event); graphPointer={mode:hit?'node':(event.shiftKey||event.button===2?'pan':'orbit'),x:event.clientX,y:event.clientY,nodeId:hit?hit.node.id:null}; try{canvas.setPointerCapture(event.pointerId);}catch(e){} if(hit){selectedKnowledge=hit.node.id;drawGraph();renderGraphDetail();}};
-  canvas.onpointermove=(event)=>{if(!graphPointer.mode)return;const dx=event.clientX-graphPointer.x,dy=event.clientY-graphPointer.y;graphPointer.x=event.clientX;graphPointer.y=event.clientY;
+  canvas.onpointerdown=(event)=>{const hit=graphHit(event); graphPointer={mode:hit?'node':(event.shiftKey||event.button===2?'pan':'orbit'),x:event.clientX,y:event.clientY,nodeId:hit?hit.node.id:null,moved:false}; try{canvas.setPointerCapture(event.pointerId);}catch(e){} if(hit){selectedKnowledge=hit.node.id;drawGraph();renderGraphDetail();}};
+  canvas.onpointermove=(event)=>{if(!graphPointer.mode)return;const dx=event.clientX-graphPointer.x,dy=event.clientY-graphPointer.y;graphPointer.moved=graphPointer.moved||Math.abs(dx)+Math.abs(dy)>2;graphPointer.x=event.clientX;graphPointer.y=event.clientY;
     if(graphPointer.mode==='node'&&graphPointer.nodeId!=='overview'){const node=nodeById(graphPointer.nodeId); if(node){node.x=clamp((Number(node.x)||50)+dx*.24,5,95);node.y=clamp((Number(node.y)||50)+dy*.24,8,92);saveState();}}
     else if(graphPointer.mode==='orbit'){graphCamera.yaw+=dx*.008;graphCamera.pitch=clamp(graphCamera.pitch+dy*.008,-1.25,1.25);}
     else if(graphPointer.mode==='pan'){graphCamera.panX+=dx;graphCamera.panY+=dy;}
     drawGraph(); if(graphPointer.mode==='node')renderGraphDetail();
   };
-  canvas.onpointerup=()=>{graphPointer.mode=null;saveState();};
-  canvas.ondblclick=(event)=>{const hit=graphHit(event);if(hit&&hit.node.id!=='overview')editKnowledgeNode(hit.node.id);};
+  canvas.onpointerup=()=>{const wasNode=graphPointer.mode==='node'&&!graphPointer.moved&&graphPointer.nodeId&&graphPointer.nodeId!=='overview';const clickedId=graphPointer.nodeId;graphPointer.mode=null;saveState();if(wasNode)openTopicCard(clickedId);};
+  canvas.ondblclick=(event)=>{const hit=graphHit(event);if(hit&&hit.node.id!=='overview'){closeTopicCard();editKnowledgeNode(hit.node.id);}};
 }
 function renderGraphDetail(){const el=document.getElementById('graphDetail');if(!el)return;const node=nodeById(selectedKnowledge);el.innerHTML=`<strong>${escapeHtml(node?node.label:'overview')}</strong><br>${escapeHtml(nodeDetail(node))}`;}
 
@@ -909,7 +974,7 @@ function nodeDetail(node){
   if (!node) return 'This is your private map of the things BackBrain can help you remember.';
   if (node.id === 'friends') return people.length ? `${people.length} people are in your circle: ${people.map(p => p.name).join(', ')}.` : 'No people have been added yet.';
   if (node.id === 'schedule') return `${Object.values(events).flat().length} calendar event(s) are currently saved in this browser.`;
-  if (node.id === 'memories') return `${moments.length} sample moments are available in the timeline. User-authored memory capture is next.`;
+  if (node.id === 'memories') return `${moments.length} sample moments are available in the timeline.`;
   return node.detail || 'A customizable part of your private map.';
 }
 function mapLineMarkup(node){
@@ -1029,6 +1094,10 @@ function renderSettings(){
       <button id="themeSwitch">${theme === 'dark' ? 'dark' : 'light'}</button>
     </div>
     <div class="settings-row">
+      <div><div class="st-title">automatic topic updates</div><div class="st-sub">turn activity into node details and create new topics when BackBrain sees a new theme.</div></div>
+      <button id="autoGraphSwitch">${graphAutoNodes ? 'on' : 'off'}</button>
+    </div>
+    <div class="settings-row">
       <div><div class="st-title">reminder notifications</div><div class="st-sub">get notified when something is coming up.</div></div>
       <button id="notifSwitch">${notificationsEnabled ? 'on' : 'off'}</button>
     </div>
@@ -1117,6 +1186,8 @@ function wireScreenEvents(){
   if (removeKnowledgeBtn && selectedKnowledge !== 'overview') removeKnowledgeBtn.onclick = () => removeKnowledgeNode(selectedKnowledge);
   const subRow = document.getElementById('subRow');
   if (subRow) subRow.onclick = () => goToScreen('subscription');
+  const autoGraphSwitch = document.getElementById('autoGraphSwitch');
+  if (autoGraphSwitch) autoGraphSwitch.onclick = () => { graphAutoNodes = !graphAutoNodes; saveState(); render(); };
   const themeSwitch = document.getElementById('themeSwitch');
   if (themeSwitch) themeSwitch.onclick = () => { theme = theme === 'dark' ? 'light' : 'dark'; applyTheme(); saveState(); render(); };
   const notifSwitch = document.getElementById('notifSwitch');
@@ -1140,12 +1211,13 @@ function wireScreenEvents(){
     caregiverShare = false;
     isSubscribed = false;
     theme = 'light';
+    graphAutoNodes = true;
     knowledgeNodes = [
-      {id:'friends', label:'friends', detail:'People in your circle and the context you have saved about them.', x:16, y:20, z:10, color:'#F4FBFF', locked:false},
-      {id:'passwords', label:'passwords', detail:'No real passwords are stored in this static prototype. Use a dedicated password manager.', x:78, y:20, z:14, color:'#F4FBFF', locked:false},
-      {id:'health', label:'health', detail:'Health reminders and notes should be protected in a real medical record.', x:16, y:76, z:8, color:'#F4FBFF', locked:false},
-      {id:'schedule', label:'schedule', detail:'Calendar events and reminders currently saved in this browser.', x:78, y:76, z:12, color:'#F4FBFF', locked:false},
-      {id:'memories', label:'memories', detail:'Moments captured in your timeline and future user-authored memories.', x:50, y:11, z:18, color:'#F4FBFF', locked:false}
+      {id:'friends', label:'friends', detail:'People in your circle and the context you have saved about them.', x:16, y:20, z:10, color:'#F4FBFF', locked:false, items:[]},
+      {id:'passwords', label:'passwords', detail:'No real passwords are stored in this static prototype. Use a dedicated password manager.', x:78, y:20, z:14, color:'#F4FBFF', locked:false, items:[]},
+      {id:'health', label:'health', detail:'Health reminders and notes should be protected in a real medical record.', x:16, y:76, z:8, color:'#F4FBFF', locked:false, items:[]},
+      {id:'schedule', label:'schedule', detail:'Calendar events and reminders currently saved in this browser.', x:78, y:76, z:12, color:'#F4FBFF', locked:false, items:[]},
+      {id:'memories', label:'memories', detail:'Moments captured in the timeline and future user-authored memories.', x:50, y:11, z:18, color:'#F4FBFF', locked:false, items:[]}
     ];
     nextNodeId = 6;
     applyTheme();
