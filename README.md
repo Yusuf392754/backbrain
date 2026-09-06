@@ -67,3 +67,9 @@ The browser preview JavaScript was syntax-checked after the parity changes. The 
 The deployable web experience is now `index.html`, a production-named copy of the self-contained browser prototype. Vercel can serve it as a static site with no build command and no environment variables. `preview.html` remains as the explicit local prototype filename, while `flutter-app/` remains the mobile source and payment backend.
 
 The repository is configured with `vercel.json` for clean URLs and basic browser security headers. The GitHub repository is the canonical source for future Vercel deployments; the current Vercel project is being deployed directly because the available Vercel account has no team identifier for automatic Git linking.
+
+## Web app completion pass
+
+The Vercel-compatible web version now stores the complete mutable demo state in a versioned browser snapshot named `backbrain_state_v1`. Reminders, calendar events, people, notification and caregiver settings, mock subscription state, and ask history all survive reloads. The reset action restores the full sample state rather than only clearing one screen.
+
+The web entry point has been exercised over local HTTP, which matches static hosting behavior: ask/answer, reminder add/edit/confirm, calendar add/delete, people add/edit/delete, settings toggles, subscription validation and cancellation, reload persistence, and reset all passed. The browser prototype and root `index.html` are kept identical to prevent deployment drift.

@@ -219,6 +219,8 @@ let notificationsEnabled = true;
 let caregiverShare = false;
 let isSubscribed = false;
 
+const STATE_KEY = 'backbrain_state_v1';
+
 // ---------- date helpers ----------
 function dateOnly(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 function startOfWeek(d){ const x = dateOnly(d); x.setDate(x.getDate() - x.getDay()); return x; }
@@ -235,9 +237,45 @@ function loadAskLog(){
   }catch(e){ return []; }
 }
 
-function saveAskLog(){
-  try{ localStorage.setItem(ASK_LOG_KEY, JSON.stringify(askLog.slice(0,20))); }catch(e){}
+function saveState(){
+  try{
+    const snapshot = {
+      version: 1,
+      nextInboxId,
+      nextEventId,
+      inbox,
+      events,
+      people,
+      askLog: askLog.slice(0,20),
+      notificationsEnabled,
+      caregiverShare,
+      isSubscribed
+    };
+    localStorage.setItem(STATE_KEY, JSON.stringify(snapshot));
+    localStorage.setItem(ASK_LOG_KEY, JSON.stringify(snapshot.askLog));
+  }catch(e){}
 }
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (Array.isArray(saved.inbox)) inbox = saved.inbox;
+    if (saved.events && typeof saved.events === 'object' && !Array.isArray(saved.events)) events = saved.events;
+    if (Array.isArray(saved.people)) people = saved.people;
+    if (Array.isArray(saved.askLog)) askLog = saved.askLog.filter(e => e && e.q && e.a).slice(0,20);
+    if (Number.isInteger(saved.nextInboxId)) nextInboxId = saved.nextInboxId;
+    if (Number.isInteger(saved.nextEventId)) nextEventId = saved.nextEventId;
+    if (typeof saved.notificationsEnabled === 'boolean') notificationsEnabled = saved.notificationsEnabled;
+    if (typeof saved.caregiverShare === 'boolean') caregiverShare = saved.caregiverShare;
+    if (typeof saved.isSubscribed === 'boolean') isSubscribed = saved.isSubscribed;
+  }catch(e){}
+}
+
+function saveAskLog(){ saveState(); }
+
+loadState();
 
 // ---------- modal helper ----------
 function showModal(title, fields){
@@ -405,6 +443,7 @@ async function addReminder(){
   const r = await showModal('add reminder', [{key:'text', label:'what needs to be remembered?', placeholder:'e.g. call the pharmacy'}]);
   if (r && r.text){
     inbox.push({id: nextInboxId++, text: r.text, meta: 'added manually'});
+    saveState();
     render();
   }
 }
@@ -413,7 +452,7 @@ async function editReminder(id){
   const item = inbox.find(i => i.id === id);
   if (!item) return;
   const r = await showModal('edit reminder', [{key:'text', label:'reminder text', value: item.text}]);
-  if (r && r.text){ item.text = r.text; render(); }
+  if (r && r.text){ item.text = r.text; saveState(); render(); }
 }
 
 async function confirmReminder(id){
@@ -429,6 +468,7 @@ async function confirmReminder(id){
   if (!events[key]) events[key] = [];
   events[key].push({id: nextEventId++, text: item.text, time: r.time || 'time tbd', source:'you'});
   inbox = inbox.filter(i => i.id !== id);
+  saveState();
   render();
 }
 
@@ -437,6 +477,7 @@ function removeEvent(id){
   if (!events[key]) return;
   events[key] = events[key].filter(e => e.id !== id);
   if (events[key].length === 0) delete events[key];
+  saveState();
   render();
 }
 
@@ -449,6 +490,7 @@ async function addEvent(){
   const key = dateKey(selectedDay);
   if (!events[key]) events[key] = [];
   events[key].push({id: nextEventId++, text: r.text, time: r.time || 'time tbd', source:'you'});
+  saveState();
   render();
 }
 
@@ -458,7 +500,7 @@ async function addPerson(){
     {key:'relation', label:'relation', placeholder:'e.g. daughter'},
     {key:'note', label:'note'}
   ]);
-  if (r && r.name){ people.push({name:r.name, relation:r.relation, note:r.note}); render(); }
+  if (r && r.name){ people.push({name:r.name, relation:r.relation, note:r.note}); saveState(); render(); }
 }
 
 async function editPerson(idx){
@@ -468,10 +510,10 @@ async function editPerson(idx){
     {key:'relation', label:'relation', value:p.relation},
     {key:'note', label:'note', value:p.note}
   ]);
-  if (r && r.name){ people[idx] = {name:r.name, relation:r.relation, note:r.note}; render(); }
+  if (r && r.name){ people[idx] = {name:r.name, relation:r.relation, note:r.note}; saveState(); render(); }
 }
 
-function removePerson(idx){ people.splice(idx,1); render(); }
+function removePerson(idx){ people.splice(idx,1); saveState(); render(); }
 
 function goToScreen(screen){ currentScreen = screen; render(); }
 function goToTab(tab){ currentTab = tab; currentScreen = tab; render(); }
@@ -716,16 +758,26 @@ function wireScreenEvents(){
   const subRow = document.getElementById('subRow');
   if (subRow) subRow.onclick = () => goToScreen('subscription');
   const notifSwitch = document.getElementById('notifSwitch');
-  if (notifSwitch) notifSwitch.onclick = () => { notificationsEnabled = !notificationsEnabled; render(); };
+  if (notifSwitch) notifSwitch.onclick = () => { notificationsEnabled = !notificationsEnabled; saveState(); render(); };
   const caregiverSwitch = document.getElementById('caregiverSwitch');
-  if (caregiverSwitch) caregiverSwitch.onclick = () => { caregiverShare = !caregiverShare; render(); };
+  if (caregiverSwitch) caregiverSwitch.onclick = () => { caregiverShare = !caregiverShare; saveState(); render(); };
   const resetBtn = document.getElementById('resetBtn');
   if (resetBtn) resetBtn.onclick = () => {
     nextInboxId = 2;
+    nextEventId = 1;
     inbox = [{id:1, text:'follow-up bloodwork', meta:'detected from dr. patel visit · suggested: 3 weeks from today'}];
     events = {};
+    people = [
+      {name:'sarah', relation:'daughter', note:'visits most weekends, usually calls first.'},
+      {name:'michael', relation:'son', note:'calls to check in, brings the kids over for dinner.'},
+      {name:'dr. patel', relation:'physician', note:'manages medication.'},
+      {name:'pat', relation:'neighbor', note:'stops by for coffee.'}
+    ];
     askLog = [];
-    saveAskLog();
+    notificationsEnabled = true;
+    caregiverShare = false;
+    isSubscribed = false;
+    saveState();
     render();
   };
 
@@ -739,10 +791,11 @@ function wireScreenEvents(){
       return;
     }
     isSubscribed = true;
+    saveState();
     render();
   };
   const cancelSubBtn = document.getElementById('cancelSubBtn');
-  if (cancelSubBtn) cancelSubBtn.onclick = () => { isSubscribed = false; render(); };
+  if (cancelSubBtn) cancelSubBtn.onclick = () => { isSubscribed = false; saveState(); render(); };
 }
 
 // ---------- top-level wiring ----------
