@@ -152,19 +152,11 @@
   .bottom-mic .stop-listening{padding:6px 8px;font-size:11px;white-space:nowrap;}
   .bottom-mic .stop-listening[disabled]{opacity:.45;cursor:not-allowed;}
   .you-intro{margin-bottom:10px;}
-  .knowledge-map{position:relative;min-height:390px;margin:10px 0 16px;border:1px solid var(--border);border-radius:16px;background:radial-gradient(circle at center, var(--you-soft) 0 12%, var(--paper) 45%, var(--bg) 100%);overflow:hidden;perspective:900px;isolation:isolate;}
-  .knowledge-map::before{content:'';position:absolute;inset:0;background-image:linear-gradient(var(--map-grid) 1px,transparent 1px),linear-gradient(90deg,var(--map-grid) 1px,transparent 1px);background-size:26px 26px;opacity:.7;transform:perspective(700px) rotateX(58deg) scale(1.3);transform-origin:center bottom;pointer-events:none;}
-  .knowledge-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible;}
-  .knowledge-links line{stroke:var(--you);stroke-width:1.2;stroke-dasharray:4 4;opacity:.55;}
-  .knowledge-node{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid var(--border);background:var(--paper);color:var(--ink);border-radius:50%;font-size:11px;padding:8px;cursor:grab;box-shadow:0 8px 18px rgba(27,36,48,.16),inset 0 0 0 1px rgba(255,255,255,.16);transition:box-shadow .16s ease,border-color .16s ease;z-index:2;touch-action:none;user-select:none;}
-  .knowledge-node:active{cursor:grabbing;}
-  .knowledge-node:hover{border-color:var(--you);box-shadow:0 12px 24px rgba(40,126,168,.24);}
-  .knowledge-node.selected{border:2px solid var(--you-deep);box-shadow:0 0 0 4px var(--you-soft),0 14px 30px rgba(40,126,168,.28);}
-  .knowledge-node.center{left:50%;top:50%;width:102px;height:102px;transform:translate(-50%,-50%) translateZ(55px);background:var(--you);color:#0B2A38;border-color:var(--you-deep);font-size:15px;font-weight:700;z-index:3;cursor:pointer;}
-  .knowledge-node.center:hover{transform:translate(-50%,-50%) translateZ(70px) scale(1.05);}
-  .knowledge-node.topic{width:82px;height:82px;}
-  .knowledge-node.custom{border-style:dashed;}
-  .knowledge-node .node-z{position:absolute;right:-3px;bottom:-3px;width:14px;height:14px;border-radius:50%;background:var(--you-deep);color:#fff;font-size:8px;line-height:14px;}
+  .knowledge-map{position:relative;min-height:420px;margin:10px 0 16px;border:1px solid var(--border);border-radius:16px;background:radial-gradient(circle at 50% 45%,var(--you-soft),var(--paper) 48%,var(--bg));overflow:hidden;touch-action:none;cursor:grab;box-shadow:inset 0 0 50px rgba(40,126,168,.12);}
+  .knowledge-map:active{cursor:grabbing;}
+  .knowledge-canvas{display:block;width:100%;height:420px;}
+  .graph-hud{position:absolute;left:10px;top:10px;font-size:10px;color:var(--ink-soft);background:color-mix(in srgb,var(--paper) 82%,transparent);padding:5px 7px;border:1px solid var(--border);border-radius:8px;pointer-events:none;backdrop-filter:blur(6px);}
+  .graph-legend{position:absolute;right:10px;bottom:10px;font-size:10px;color:var(--ink-soft);background:color-mix(in srgb,var(--paper) 82%,transparent);padding:5px 7px;border:1px solid var(--border);border-radius:8px;pointer-events:none;}
   .map-tools{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;}
   .map-tools button{font-size:11px;padding:5px 8px;}
   .map-hint{font-size:11px;color:var(--ink-soft);margin:0 0 8px;}
@@ -838,6 +830,78 @@ function renderCalendar(){
 }
 
 let draggingNodeId = null;
+let graphCamera = {yaw:0.55, pitch:-0.18, zoom:1, panX:0, panY:0};
+let graphPointer = {mode:null, x:0, y:0, nodeId:null};
+let graphAnimation = 0;
+let graphAutoRotate = true;
+
+function graphPoint(node){
+  if (node.id === 'overview') return {x:0,y:0,z:0};
+  return {x:((Number(node.x)||50)-50)/7, y:((Number(node.y)||50)-50)/7, z:((Number(node.z)||10)-14)/2};
+}
+function projectGraphPoint(point, width, height){
+  const cy=Math.cos(graphCamera.yaw), sy=Math.sin(graphCamera.yaw), cp=Math.cos(graphCamera.pitch), sp=Math.sin(graphCamera.pitch);
+  const x1=point.x*cy-point.z*sy;
+  const z1=point.x*sy+point.z*cy;
+  const y1=point.y*cp-z1*sp;
+  const z2=point.y*sp+z1*cp;
+  const depth=1/(1+z2*0.075);
+  return {x:width/2+graphCamera.panX+x1*38*graphCamera.zoom*depth,y:height/2+graphCamera.panY+y1*38*graphCamera.zoom*depth,depth,z:z2};
+}
+function graphNodes(){ return [{id:'overview',label:'you',color:'var(--you)',z:0},...knowledgeNodes]; }
+function graphColors(){ const style=getComputedStyle(document.documentElement); return {ink:style.getPropertyValue('--ink').trim(),soft:style.getPropertyValue('--ink-soft').trim(),border:style.getPropertyValue('--border').trim(),you:style.getPropertyValue('--you').trim(),deep:style.getPropertyValue('--you-deep').trim(),paper:style.getPropertyValue('--paper').trim()}; }
+function drawGraph(){
+  const canvas=document.getElementById('knowledgeCanvas');
+  if(!canvas) return;
+  const rect=canvas.getBoundingClientRect(); const dpr=window.devicePixelRatio||1;
+  if(canvas.width!==Math.floor(rect.width*dpr)||canvas.height!==Math.floor(rect.height*dpr)){canvas.width=Math.floor(rect.width*dpr);canvas.height=Math.floor(rect.height*dpr);}
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  const width=rect.width,height=rect.height, colors=graphColors();
+  ctx.clearRect(0,0,width,height);
+  const glow=ctx.createRadialGradient(width/2,height/2,10,width/2,height/2,width*.7); glow.addColorStop(0,colors.you+'33'); glow.addColorStop(1,'transparent'); ctx.fillStyle=glow; ctx.fillRect(0,0,width,height);
+  const points=graphNodes().map(n=>({node:n,point:graphPoint(n),screen:projectGraphPoint(graphPoint(n),width,height)}));
+  const center=points[0].screen;
+  ctx.lineWidth=1;
+  for(let i=1;i<points.length;i++){
+    const p=points[i].screen; ctx.strokeStyle=colors.you+'88'; ctx.setLineDash([4,5]); ctx.beginPath(); ctx.moveTo(center.x,center.y);ctx.lineTo(p.x,p.y);ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  points.sort((a,b)=>a.screen.z-b.screen.z);
+  for(const item of points){
+    const n=item.node,s=item.screen; const selected=selectedKnowledge===n.id; const base=n.id==='overview'?28:16; const radius=Math.max(9,base*s.depth*graphCamera.zoom);
+    ctx.save(); ctx.globalAlpha=clamp(.62+s.depth*.22,.45,1); ctx.shadowBlur=selected?22:12; ctx.shadowColor=n.id==='overview'?colors.you:colors.deep;
+    ctx.fillStyle=n.id==='overview'?colors.you:(n.color||colors.paper); ctx.strokeStyle=selected?colors.you:colors.border; ctx.lineWidth=selected?3:1.2; ctx.beginPath();ctx.arc(s.x,s.y,radius,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;
+    ctx.fillStyle=n.id==='overview'?'#082733':colors.ink;ctx.font=`${n.id==='overview'?'600 13':'600 11'}px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n.label,s.x,s.y);
+    if(n.id!=='overview'){ctx.fillStyle=colors.you;ctx.font='9px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif';ctx.fillText(Math.round(Number(n.z)||0),s.x,s.y+radius+9);}
+    ctx.restore(); item.radius=radius;
+  }
+  canvas._graphPoints=points;
+}
+function animateGraph(){
+  if(currentScreen==='you' && graphAutoRotate && !graphPointer.mode){graphCamera.yaw+=.0018;drawGraph();}
+  graphAnimation=requestAnimationFrame(animateGraph);
+}
+function graphHit(event){
+  const canvas=document.getElementById('knowledgeCanvas'); if(!canvas||!canvas._graphPoints)return null; const rect=canvas.getBoundingClientRect(); const x=event.clientX-rect.left,y=event.clientY-rect.top;
+  return [...canvas._graphPoints].reverse().find(item=>Math.hypot(item.screen.x-x,item.screen.y-y)<=item.radius) || null;
+}
+function resetGraphView(){graphCamera={yaw:.55,pitch:-.18,zoom:1,panX:0,panY:0};drawGraph();}
+function wireGraph(){
+  const canvas=document.getElementById('knowledgeCanvas'); if(!canvas)return;
+  drawGraph();
+  canvas.oncontextmenu=(event)=>event.preventDefault();
+  canvas.onwheel=(event)=>{event.preventDefault();graphCamera.zoom=clamp(graphCamera.zoom*(event.deltaY<0?1.08:.92),.55,2.6);drawGraph();};
+  canvas.onpointerdown=(event)=>{const hit=graphHit(event); graphPointer={mode:hit?'node':(event.shiftKey||event.button===2?'pan':'orbit'),x:event.clientX,y:event.clientY,nodeId:hit?hit.node.id:null}; try{canvas.setPointerCapture(event.pointerId);}catch(e){} if(hit){selectedKnowledge=hit.node.id;drawGraph();renderGraphDetail();}};
+  canvas.onpointermove=(event)=>{if(!graphPointer.mode)return;const dx=event.clientX-graphPointer.x,dy=event.clientY-graphPointer.y;graphPointer.x=event.clientX;graphPointer.y=event.clientY;
+    if(graphPointer.mode==='node'&&graphPointer.nodeId!=='overview'){const node=nodeById(graphPointer.nodeId); if(node){node.x=clamp((Number(node.x)||50)+dx*.24,5,95);node.y=clamp((Number(node.y)||50)+dy*.24,8,92);saveState();}}
+    else if(graphPointer.mode==='orbit'){graphCamera.yaw+=dx*.008;graphCamera.pitch=clamp(graphCamera.pitch+dy*.008,-1.25,1.25);}
+    else if(graphPointer.mode==='pan'){graphCamera.panX+=dx;graphCamera.panY+=dy;}
+    drawGraph(); if(graphPointer.mode==='node')renderGraphDetail();
+  };
+  canvas.onpointerup=()=>{graphPointer.mode=null;saveState();};
+  canvas.ondblclick=(event)=>{const hit=graphHit(event);if(hit&&hit.node.id!=='overview')editKnowledgeNode(hit.node.id);};
+}
+function renderGraphDetail(){const el=document.getElementById('graphDetail');if(!el)return;const node=nodeById(selectedKnowledge);el.innerHTML=`<strong>${escapeHtml(node?node.label:'overview')}</strong><br>${escapeHtml(nodeDetail(node))}`;}
 
 function clamp(value, min, max){ return Math.max(min, Math.min(max, value)); }
 function nodeById(id){ return knowledgeNodes.find(n => n.id === id); }
@@ -918,19 +982,17 @@ function renderYou(){
   const selectedNode = nodeById(selectedKnowledge);
   const selectedTitle = selectedNode ? selectedNode.label : 'overview';
   const selected = nodeDetail(selectedNode);
-  const nodesHtml = knowledgeNodes.map(mapNodeMarkup).join('');
-  const linesHtml = knowledgeNodes.map(mapLineMarkup).join('');
   return `
     <h1 class="hero">you</h1>
-    <p class="sub you-intro">a living 3D-style map of what BackBrain knows — drag, edit, and shape it your way.</p>
-    <div class="map-tools"><button id="addKnowledgeBtn" class="primary">+ add node</button><button id="resetMapBtn">reset layout</button><button id="editKnowledgeBtn" ${selectedNode ? '' : 'disabled'}>edit selected</button><button id="removeKnowledgeBtn" ${selectedNode ? '' : 'disabled'}>remove selected</button></div>
-    <p class="map-hint">drag nodes to move them. Each move auto-saves. Changes from another tab auto-refresh here.</p>
-    <div class="knowledge-map" aria-label="Your customizable knowledge map">
-      <svg class="knowledge-links" viewBox="0 0 100 100" preserveAspectRatio="none">${linesHtml}</svg>
-      <button class="knowledge-node center${selectedKnowledge === 'overview' ? ' selected' : ''}" data-knowledge="overview">you</button>
-      ${nodesHtml}
+    <p class="sub you-intro">an interactive spatial graph of what BackBrain knows — orbit it like a 3D constellation.</p>
+    <div class="map-tools"><button id="addKnowledgeBtn" class="primary">+ add node</button><button id="resetGraphBtn">reset view</button><button id="toggleAutoRotateBtn">${graphAutoRotate ? 'pause orbit' : 'auto orbit'}</button><button id="editKnowledgeBtn" ${selectedNode ? '' : 'disabled'}>edit selected</button><button id="removeKnowledgeBtn" ${selectedNode ? '' : 'disabled'}>remove selected</button></div>
+    <p class="map-hint">drag empty space to orbit · shift-drag to pan · drag a node to move it · scroll to zoom · double-click a node to edit · changes auto-save</p>
+    <div class="knowledge-map" aria-label="Your interactive 3D knowledge graph">
+      <canvas id="knowledgeCanvas" class="knowledge-canvas"></canvas>
+      <div class="graph-hud">3D GRAPH · ${knowledgeNodes.length + 1} NODES</div>
+      <div class="graph-legend">blue = you · dashed lines = connections</div>
     </div>
-    <div class="knowledge-detail"><strong>${escapeHtml(selectedTitle)}</strong><br>${escapeHtml(selected)}</div>
+    <div class="knowledge-detail" id="graphDetail"><strong>${escapeHtml(selectedTitle)}</strong><br>${escapeHtml(selected)}</div>
   `;
 }
 
@@ -1045,23 +1107,14 @@ function wireScreenEvents(){
   const addKnowledgeBtn = document.getElementById('addKnowledgeBtn');
   if (addKnowledgeBtn) addKnowledgeBtn.onclick = addKnowledgeNode;
   const resetMapBtn = document.getElementById('resetMapBtn');
-  if (resetMapBtn) resetMapBtn.onclick = resetKnowledgeLayout;
+  if (resetMapBtn) resetMapBtn.onclick = () => { resetGraphView(); resetKnowledgeLayout(); };
+  const toggleAutoRotateBtn = document.getElementById('toggleAutoRotateBtn');
+  if (toggleAutoRotateBtn) toggleAutoRotateBtn.onclick = () => { graphAutoRotate = !graphAutoRotate; render(); };
+  if (document.getElementById('knowledgeCanvas')) wireGraph();
   const editKnowledgeBtn = document.getElementById('editKnowledgeBtn');
   if (editKnowledgeBtn && selectedKnowledge !== 'overview') editKnowledgeBtn.onclick = () => editKnowledgeNode(selectedKnowledge);
   const removeKnowledgeBtn = document.getElementById('removeKnowledgeBtn');
   if (removeKnowledgeBtn && selectedKnowledge !== 'overview') removeKnowledgeBtn.onclick = () => removeKnowledgeNode(selectedKnowledge);
-  document.querySelectorAll('[data-drag-node]').forEach(nodeEl => {
-    nodeEl.addEventListener('pointerdown', (event) => {
-      draggingNodeId = nodeEl.dataset.dragNode;
-      nodeEl.setPointerCapture(event.pointerId);
-      selectedKnowledge = draggingNodeId;
-      nodeEl.classList.add('selected');
-    });
-    nodeEl.addEventListener('pointermove', (event) => { if (draggingNodeId === nodeEl.dataset.dragNode) updateNodePosition(draggingNodeId, event); });
-    nodeEl.addEventListener('pointerup', () => { if (draggingNodeId === nodeEl.dataset.dragNode){ draggingNodeId = null; saveState(); render(); } });
-    nodeEl.addEventListener('click', () => { if (!draggingNodeId) { selectedKnowledge = nodeEl.dataset.dragNode; render(); } });
-  });
-
   const subRow = document.getElementById('subRow');
   if (subRow) subRow.onclick = () => goToScreen('subscription');
   const themeSwitch = document.getElementById('themeSwitch');
@@ -1130,7 +1183,8 @@ window.addEventListener('storage', (event) => { if (event.key === STATE_KEY){ lo
 
 applyTheme();
 render();
-setInterval(() => { if (currentScreen === 'you' && !draggingNodeId) render(); }, 2000);
+if (!graphAnimation) animateGraph();
+window.addEventListener('resize', () => { if (currentScreen === 'you') drawGraph(); });
 </script>
 
 </body>

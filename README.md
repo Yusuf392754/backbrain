@@ -81,3 +81,9 @@ The web app now has explicit `start listening` and `turn off listening` controls
 The new You screen is a connected-node map centered on `you`, with topic nodes for `friends`, `passwords`, `health`, `schedule`, and `memories`. The passwords node intentionally does not store credentials and points users to a dedicated password manager.
 
 The static site does not pretend to provide secure sign-in or true end-to-end encryption. Browser localStorage is not a secure credential vault, and a static client has no identity provider, server-side session boundary, or multi-device key exchange. The app now exposes this limitation in its security center and applies conservative browser headers, including a microphone-only Permissions Policy. A real E2EE release requires a backend identity system, phishing-resistant MFA, encrypted server storage, and per-user client-side keys that the server cannot read.
+
+## Spatial You graph
+
+The You screen now uses a browser-native Canvas 3D projection rather than a flat HTML layout. It behaves like a spatial knowledge graph: the central light-blue You node is connected to topic and custom nodes in depth, with perspective, depth labels, glow, and selectable connections. Drag empty space to orbit, shift-drag to pan, scroll to zoom, drag nodes to move them, double-click a node to edit it, and use the graph controls to pause orbiting or reset the camera.
+
+The graph remains dependency-free and compatible with static hosting. Node positions, colors, labels, and descriptions are saved in the existing browser state layer; the graph automatically redraws during orbit and reacts to state changes from other tabs.
