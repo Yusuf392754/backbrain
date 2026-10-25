@@ -1,0 +1,12 @@
+{
+  "name": "backbrain-web",
+  "private": true,
+  "version": "1.0.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "check": "node --check api/ask.js && node --check api/stripe/create-checkout-session.js && node --check api/stripe/session-status.js && node --check api/stripe/webhook.js"
+  },
+  "dependencies": {
+    "stripe": "^17.7.0"
+  }
+}

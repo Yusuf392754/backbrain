@@ -1,0 +1,64 @@
+flowchart TD
+    A([Yusuf says something]) --> B{Is BackBrain listening?}
+    B -- No --> C[Microphone stays off]
+    C --> D[Tap Start listening]
+    D --> E[Phone or computer requests microphone permission]
+    E --> F{Permission granted?}
+    F -- No --> G[Show microphone permission message]
+    F -- Yes --> H[Listening begins]
+    B -- Yes --> H
+
+    H --> I[Capture speech audio]
+    I --> J{Wake word detected?}
+    J -- No --> I
+    J -- Yes --> K[Capture the command or memory]
+    K --> L[Speech recognition converts audio to text]
+    L --> M{Was the speech understood?}
+    M -- No --> N[Ask Yusuf to repeat]
+    N --> K
+    M -- Yes --> O[Create a transcript]
+
+    O --> P{What kind of request is it?}
+    P -- Reminder --> Q[Create reminder]
+    P -- Calendar event --> R[Create scheduled event]
+    P -- Person or relationship --> S[Update person record]
+    P -- Memory or note --> T[Save memory]
+    P -- Question --> U[Search Yusuf's saved context]
+    P -- Navigation --> V[Open requested screen]
+    P -- Stop listening --> W[Turn listening off]
+
+    Q --> X[Update local state]
+    R --> X
+    S --> X
+    T --> X
+    U --> Y{AI access approved?}
+    Y -- No --> Z[Answer from local saved context]
+    Y -- Yes --> AA[Send only selected context to secure AI service]
+    AA --> AB[Receive answer]
+    AB --> Z
+    V --> AC[Show requested screen]
+    W --> AD[Stop microphone and speech processing]
+
+    X --> AE[Automatically enrich the knowledge graph]
+    AE --> AF[Refresh timeline, calendar, people, and topic cards]
+    AF --> AG[Confirm what BackBrain heard]
+    Z --> AG
+    AC --> AG
+    AG --> AH[Speak response aloud and show it on screen]
+
+    subgraph Current_Offline_Presentation_Build
+      OFF1[No live speech understanding is required]
+      OFF2[Start listening waits 8 seconds]
+      OFF3[Offline scripted response: best friends are Aakash and Rishan]
+      OFF1 --> OFF2 --> OFF3
+    end
+
+    subgraph Intended_Production_Build
+      PROD1[Wake-word engine such as Picovoice]
+      PROD2[Speech recognition]
+      PROD3[Encrypted client-side memory]
+      PROD4[Supabase authentication and encrypted sync]
+      PROD5[OpenAI only for explicitly approved context]
+      PROD1 --> PROD2 --> PROD3 --> PROD4
+      PROD3 --> PROD5
+    end
