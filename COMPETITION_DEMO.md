@@ -1,4 +1,4 @@
-# BackBrain competition presentation guide
+# BackBrain by Yusuf competition presentation guide
 
 ## Choose the package
 

@@ -1,6 +1,6 @@
-# BackBrain
+# BackBrain by Yusuf
 
-BackBrain is a calm memory assistant prototype for Yusuf. It combines reminders, a personal calendar, relationships, spoken interaction, and an interactive spatial “You” knowledge graph.
+BackBrain by Yusuf is a calm memory assistant prototype. It combines reminders, a personal calendar, relationships, spoken interaction, and an interactive spatial “You” knowledge graph.
 
 ## What is included
 
