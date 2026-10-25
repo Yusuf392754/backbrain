@@ -1,0 +1,12 @@
+REPLACE THIS FILE.
+
+This is a placeholder, not a real Porcupine wake word model.
+
+1. Go to https://console.picovoice.ai and sign up (free).
+2. Train a custom wake word "hey backbrain" for your target platform (Android/iOS).
+3. Download the real .ppn file it gives you.
+4. Replace this file with that one, keeping the same filename: hey_backbrain.ppn
+
+The app will not detect the wake word correctly until you do this —
+a real .ppn is a trained binary model, not something that can be
+generated without the Picovoice Console.
