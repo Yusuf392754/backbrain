@@ -16,7 +16,7 @@ Both packages are self-contained and do not require a website URL, API key, acco
 5. Open **You** and drag, orbit, zoom, and select the connected knowledge-graph nodes.
 6. Open a topic card and show how details are organized.
 7. Switch between light and dark themes.
-8. Press **Ask** or **Start listening**. The offline presentation build waits eight seconds and speaks the personalized best-friends response.
+8. Open **Settings** and turn **mock data** on. This intentionally loads the personalized presentation records. Press **Ask** or **Start listening**; the offline presentation build waits eight seconds and speaks the personalized best-friends response.
 
 ## Accurate explanation
 

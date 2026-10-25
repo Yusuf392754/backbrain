@@ -37,7 +37,7 @@ These local packages are personalized for Yusuf, age 13, with Aakash and Rishan 
 
 ## Competition demo behavior
 
-The offline presentation builds demonstrate the interface reliably without external services. Pressing **Ask** waits eight seconds and says, “Your best friends are Aakash and Rishan.” Pressing **Start listening** waits eight seconds and says the same response. This scripted behavior is intentionally separate from the planned production speech-to-command pipeline.
+The production-first web app starts with no sample people, events, reminders, or memories. Settings includes a **mock data** switch that intentionally loads the personalized Yusuf/Aakash/Rishan presentation records; turning it off clears them. The offline presentation builds also demonstrate the interface reliably without external services. Their scripted eight-second voice behavior is intentionally separate from the planned production speech-to-command pipeline.
 
 ## Production boundary
 
